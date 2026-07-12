@@ -1,4 +1,3 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
 import { 
   getAuth, 
   signInWithPopup, 
@@ -18,7 +17,7 @@ import {
   where,
   onSnapshot
 } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json";
+import { app, firebaseConfig } from "./firebaseConfig";
 import { Lead } from "../types";
 
 // Determine if we are using actual Firebase credentials or placeholder
@@ -30,18 +29,46 @@ export const isFirebaseConfigured = (): boolean => {
   );
 };
 
-// Initialize app only if actual configuration exists
-let app;
+// Initialize auth/db only if actual configuration exists
 export let auth: any = null;
 export let db: any = null;
 
 const parsedConfig = firebaseConfig as any;
 
+// Temporary diagnostics — remove once the Firestore database ID is confirmed.
+const FIREBASE_DIAGNOSTICS = true;
+
 if (isFirebaseConfigured()) {
   try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app, parsedConfig.firestoreDatabaseId || "sorocrm");
+    const databaseId = parsedConfig.firestoreDatabaseId || "soro-crm";
+    db = getFirestore(app);
+
+    if (FIREBASE_DIAGNOSTICS) {
+      console.warn(
+        "[firebase-diag] Project:", firebaseConfig.projectId,
+        "| Resolved Firestore databaseId:", databaseId,
+        "| Firebase configured:", isFirebaseConfigured()
+      );
+      // Probe (unauthenticated): proves the DB exists/reachable. A `permission-denied`
+      // here is EXPECTED if your rules require auth — it is NOT the bug. The real
+      // failure surfaces during authenticated operations (see teamService catch logs).
+      (async () => {
+        try {
+          const probe = await getDocs(collection(db, "soro_diag_probe"));
+          console.warn(
+            "[firebase-diag] Firestore reachable ✅ (unauthenticated probe returned",
+            probe.size, "docs — DB exists)."
+          );
+        } catch (err: any) {
+          console.warn(
+            "[firebase-diag] Unauthenticated probe result -> code:", err?.code,
+            "| message:", err?.message,
+            "\n  (permission-denied here is EXPECTED if rules require auth; not the root cause)"
+          );
+        }
+      })();
+    }
   } catch (e) {
     console.error("Firebase initialization failed:", e);
   }

@@ -18,9 +18,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
       <body>
-        {/* Next.js doesn't need <div id="root">, but you can keep it 
-            if your existing CSS styles depend on it */}
-        <div id="root">
+        <div >
           {children}
         </div>
       </body>
