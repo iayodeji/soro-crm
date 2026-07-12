@@ -1,0 +1,70 @@
+export type Phase = "lead_found" | "prospect_engaged" | "client_closed";
+
+export interface Lead {
+  id: string;
+  name: string;
+  company_name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string;
+  phase: Phase;
+  createdAt: string;
+  updatedAt: string;
+  marketFitThesis?: string;
+  momTestQuestions?: string[];
+  gmailSent?: boolean;
+  calendarScheduled?: boolean;
+  sheetsSynced?: boolean;
+  tasksCreated?: boolean;
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  leadId: string;
+  leadName: string;
+  action: string;
+  details: string;
+  type: "success" | "info" | "warning";
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  status: "active" | "away" | "offline";
+  activity?: "viewing" | "editing" | "idle";
+  role?: "owner" | "admin" | "editor" | "viewer" | "member";
+  email?: string;
+  lastActiveAt?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: string;
+}
+
+export interface TeamInvitation {
+  id: string;
+  email: string;
+  teamId: string;
+  teamName: string;
+  role: "admin" | "editor" | "viewer" | "member";
+  token: string;
+  status: "pending" | "accepted" | "expired";
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface GeminiParseResponse {
+  parsed_lead: {
+    name: string | null;
+    company_name: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  market_fit_thesis: string;
+  mom_test_questions: string[];
+}

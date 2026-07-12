@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "Team": {
+      "title": "Team Workspace",
+      "description": "An isolated pipeline tenant workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId", "createdAt"]
+    },
+    "TeamMembership": {
+      "title": "Team Membership",
+      "description": "Represents a user's membership and specific role in a workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "away", "offline"] },
+        "activity": { "type": "string", "enum": ["viewing", "editing", "idle"] },
+        "role": { "type": "string", "enum": ["owner", "admin", "editor", "viewer"] },
+        "lastActiveAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "teamId", "name", "email", "avatarUrl", "status", "activity", "role", "lastActiveAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "A startup or founder discovery lead profile inside a workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "teamId": { "type": "string" },
+        "name": { "type": "string" },
+        "company_name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "notes": { "type": "string" },
+        "phase": { "type": "string", "enum": ["lead_found", "prospect_engaged", "client_closed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "marketFitThesis": { "type": "string" },
+        "momTestQuestions": { "type": "array" },
+        "gmailSent": { "type": "boolean" },
+        "calendarScheduled": { "type": "boolean" },
+        "sheetsSynced": { "type": "boolean" },
+        "tasksCreated": { "type": "boolean" }
+      },
+      "required": ["id", "teamId", "name", "company_name", "phase", "createdAt", "updatedAt"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "An invitation to join a workspace with a specific role.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "teamId": { "type": "string" },
+        "teamName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "token": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "teamId", "teamName", "role", "token", "status", "createdAt", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Workspace records"
+    },
+    "/team_memberships/{membershipId}": {
+      "schema": "TeamMembership",
+      "description": "Memberships within workspaces"
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Leads of workspaces"
+    },
+    "/invitations/{token}": {
+      "schema": "Invitation",
+      "description": "Invitations to join workspaces"
+    }
+  }
+}

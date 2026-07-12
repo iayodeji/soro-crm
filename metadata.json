@@ -1,0 +1,6 @@
+{
+  "name": "Soro CRM",
+  "description": "A hyper-minimalist, collaborative, AI-proactive CRM for early-stage founders conducting discovery interviews.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
