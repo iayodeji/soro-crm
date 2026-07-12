@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Building2, FileText, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Lead } from "../types";
+import { Lead } from "@/types";
 
 interface LeadSlideshowProps {
   leads: Lead[];
