@@ -13,7 +13,7 @@ app.use(express.json());
 
 // Initialize Gemini SDK with User-Agent telemetry
 const ai = new GoogleGenAI({
-  apiKey: process.env.soroCRM || process.env.GEMINI_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
     headers: {
       "User-Agent": "aistudio-build",

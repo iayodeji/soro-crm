@@ -1,18 +1,19 @@
+'use client';
 import React, { useState, useEffect } from "react";
-import { TopBar } from "./components/TopBar";
-import { OmniInput } from "./components/OmniInput";
-import { KanbanBoard } from "./components/KanbanBoard";
-import { LeadDetailView } from "./components/LeadDetailView";
+import { TopBar } from "@/components/TopBar";
+import { OmniInput } from "@/components/OmniInput";
+import { KanbanBoard } from "@/components/KanbanBoard";
+import { LeadDetailView } from "@/components/LeadDetailView";
 import { 
   initAuth, googleSignIn, logout, isFirebaseConfigured
-} from "./lib/firebase";
+} from "@/lib/firebase";
 import { 
   createTeam, fetchUserTeams, subscribeToTeamMemberships, 
   updatePresence, fetchLeadsByTeam, saveLeadForTeam, 
   deleteLeadForTeam, joinTeamViaInvitation 
-} from "./lib/teamService";
-import { Lead, ActivityLog, TeamMember, Phase, Team } from "./types";
-import { TeamManagementModal } from "./components/TeamManagementModal";
+} from "@/lib/teamService";
+import { Lead, ActivityLog, TeamMember, Phase, Team } from "@/types";
+import { TeamManagementModal } from "@/components/TeamManagementModal";
 import { 
   Users, CheckCircle2, MessageSquare, History, Sparkles, 
   TrendingUp, RefreshCw, Layers, Bell, FileDown, Smartphone, 
@@ -21,7 +22,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { 
   playSuccessPop, playInfoTap, playFCMPushSound, playWarningChime 
-} from "./utils/audio";
+} from "@/utils/audio";
 
 interface ToastMessage {
   id: string;
