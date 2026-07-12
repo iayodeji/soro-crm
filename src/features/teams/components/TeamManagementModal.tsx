@@ -3,8 +3,8 @@ import {
   X, Plus, Users, Mail, Link2, Shield, Trash2, Check, Sparkles, Copy, ExternalLink, AlertCircle, CreditCard, Receipt
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Team, TeamMember } from "../types";
-import { createTeam, createInvitation, changeMemberRole, removeTeamMember, deleteTeamWorkspace } from "../lib/teamService";
+import { Team, TeamMember } from "@/types";
+import { createTeam, createInvitation, changeMemberRole, removeTeamMember, deleteTeamWorkspace } from "@/lib/teamService";
 
 interface TeamManagementModalProps {
   isOpen: boolean;

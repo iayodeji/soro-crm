@@ -6,7 +6,7 @@ import {
   ListTodo, FileDown, Layers, MessageSquare, Save
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Lead, Phase } from "../types";
+import { Lead, Phase } from "@/types";
 
 interface LeadDetailViewProps {
   lead: Lead | null;

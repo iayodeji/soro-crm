@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Plus, Eye, Search, X, User, Building2, Trash2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Lead, Phase } from "../types";
+import { Lead, Phase } from "@/types";
 import { LeadSlideshow } from "./LeadSlideshow";
 
 interface KanbanBoardProps {

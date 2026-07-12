@@ -1,7 +1,7 @@
 import React from "react";
 import { Sparkles, Radio, LogIn, LogOut, CheckCircle2, AlertCircle, Settings, Users } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { TeamMember } from "../types";
+import { TeamMember } from "@/types";
 
 interface TopBarProps {
   user: any;
