@@ -25,13 +25,15 @@ service cloud.firestore {
     }
 
     function hasPendingInvitation(token, teamId) {
+      let invitePath = /databases/$(database)/documents/invitations/$(token);
       return token is string &&
-        exists(/databases/$(database)/documents/invitations/$(token)) &&
-        let invite = get(/databases/$(database)/documents/invitations/$(token)).data;
-        invite.status == 'pending' &&
-        invite.teamId == teamId &&
-        request.time < timestamp(invite.expiresAt) &&
-        (invite.email == null || invite.email == '' || invite.email == request.auth.token.email);
+        exists(invitePath) &&
+        get(invitePath).data.status == 'pending' &&
+        get(invitePath).data.teamId == teamId &&
+        request.time < timestamp(get(invitePath).data.expiresAt) &&
+        (get(invitePath).data.email == null ||
+         get(invitePath).data.email == '' ||
+         get(invitePath).data.email == request.auth.token.email);
     }
 
     // /teams/{teamId}
@@ -46,8 +48,20 @@ service cloud.firestore {
 
     // /team_memberships/{userId}_{teamId}
     match /team_memberships/{membershipDocId} {
+      // FIX: the "is this my own doc?" check now derives entirely from the doc ID
+      // (membershipDocId == "{uid}_{teamId}") instead of resource.data.userId.
+      // This matters because transaction.get() on this doc runs *before* the doc
+      // exists (first-time join pre-check in joinTeamViaInvitation). On a
+      // nonexistent doc, `resource` is null in security rules, so any reference
+      // to resource.data throws -> Firestore reports "permission-denied" instead
+      // of "not found". Deriving from the ID avoids touching resource.data at all
+      // when the requester is checking their own membership.
       allow read: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isTeamMember(resource.data.teamId));
+        (
+          (resource != null && resource.data.userId == request.auth.uid) ||
+          membershipDocId.split('_')[0] == request.auth.uid ||
+          isTeamMember(resource.data.teamId)
+        );
       // A user can create their own membership (team creation, or accepting an invite)
       allow create: if isSignedIn() &&
         request.resource.data.userId == request.auth.uid &&
@@ -78,8 +92,17 @@ service cloud.firestore {
     match /invitations/{token} {
       allow get: if isSignedIn();
       allow create: if isTeamAdminOrOwner(request.resource.data.teamId);
+      // FIX: open/link-based invites (empty or null email) can now also be marked
+      // accepted/expired. Previously this required an exact email match, but
+      // hasPendingInvitation() explicitly permits empty/null email to authorize
+      // the join itself — so an open invite could let someone join and then fail
+      // permission on the immediately-following status update in the same
+      // transaction. Kept as a fallback; if every invite in your app always has
+      // a concrete email attached, this branch simply never triggers.
       allow update: if isSignedIn() &&
-        resource.data.email == request.auth.token.email &&
+        (resource.data.email == request.auth.token.email ||
+         resource.data.email == null ||
+         resource.data.email == '') &&
         resource.data.status == 'pending' &&
         request.resource.data.status in ['accepted', 'expired'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);

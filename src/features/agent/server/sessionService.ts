@@ -1,25 +1,17 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-} from "firebase/firestore";
+// Removed all "firebase/firestore" client imports
 import { callGroq } from "@/features/leads/server/groqClient";
 import { resolveModel } from "@/features/leads/server/modelSelection";
 import type { Session, SessionMessage, TeamKnowledge } from "@/types";
-import { db } from "@/lib/firebase";
+
+// ⚠️ IMPORTANT: Make sure this points to your ADMIN initialization, not the client one!
+import { adminDb } from "@/lib/firebaseAdmin"; 
 
 const SESSIONS_COLLECTION = "sessions";
 const TEAM_KNOWLEDGE_COLLECTION = "team_knowledge";
 
 function getDb() {
-  if (!db) throw new Error("Firestore is not configured.");
-  return db;
+  if (!adminDb) throw new Error("Firestore Admin SDK is not configured.");
+  return adminDb;
 }
 
 function generateThreadId(): string {
@@ -54,47 +46,48 @@ export async function createSession({
     messages: firstMessage ? [firstMessage] : [],
     lastActivity: now,
     createdAt: now,
+    summary: "",
     title: firstMessage?.content?.slice(0, 60) || "New conversation",
   };
 
-  await setDoc(doc(db, SESSIONS_COLLECTION, sessionId), session);
+  await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(session);
   return session;
 }
 
 export async function getSession(sessionId: string): Promise<Session | null> {
   const db = getDb();
-  const snapshot = await getDoc(doc(db, SESSIONS_COLLECTION, sessionId));
-  if (!snapshot.exists()) return null;
+  const snapshot = await db.collection(SESSIONS_COLLECTION).doc(sessionId).get();
+  
+  // Note: .exists is a property in the Admin SDK, not a function!
+  if (!snapshot.exists) return null; 
   return { id: snapshot.id, ...snapshot.data() } as Session;
 }
 
 export async function getSessionsByTeam(teamId: string, limitCount = 20): Promise<Session[]> {
   const db = getDb();
-  const q = query(
-    collection(db, SESSIONS_COLLECTION),
-    where("teamId", "==", teamId),
-    orderBy("lastActivity", "desc"),
-    limit(limitCount)
-  );
-  const snapshot = await getDocs(q);
+  const snapshot = await db.collection(SESSIONS_COLLECTION)
+    .where("teamId", "==", teamId)
+    .orderBy("lastActivity", "desc")
+    .limit(limitCount)
+    .get();
+    
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Session));
 }
 
 export async function getSessionsByThread(teamId: string, threadId: string): Promise<Session[]> {
   const db = getDb();
-  const q = query(
-    collection(db, SESSIONS_COLLECTION),
-    where("teamId", "==", teamId),
-    where("threadId", "==", threadId),
-    orderBy("lastActivity", "desc")
-  );
-  const snapshot = await getDocs(q);
+  const snapshot = await db.collection(SESSIONS_COLLECTION)
+    .where("teamId", "==", teamId)
+    .where("threadId", "==", threadId)
+    .orderBy("lastActivity", "desc")
+    .get();
+    
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Session));
 }
 
 export async function addMessageToSession(sessionId: string, message: SessionMessage): Promise<Session> {
   const db = getDb();
-  const sessionRef = doc(db, SESSIONS_COLLECTION, sessionId);
+  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId);
 
   const session = await getSession(sessionId);
   if (!session) throw new Error("Session not found.");
@@ -106,7 +99,7 @@ export async function addMessageToSession(sessionId: string, message: SessionMes
   const oldMessages = updatedMessages.filter((m) => new Date(m.timestamp).getTime() < thirtyDaysAgo);
   const recentMessages = updatedMessages.filter((m) => new Date(m.timestamp).getTime() >= thirtyDaysAgo);
 
-  let summary = session.summary;
+  let summary = session.summary ?? "";
   if (oldMessages.length > 0) {
     summary = await summarizeMessages(oldMessages, summary);
   }
@@ -118,7 +111,7 @@ export async function addMessageToSession(sessionId: string, message: SessionMes
     lastActivity: now,
   };
 
-  await setDoc(sessionRef, updatedSession);
+  await sessionRef.set(updatedSession);
   return updatedSession;
 }
 
@@ -173,14 +166,15 @@ export async function getOrCreateSession({
 
 export async function getTeamKnowledge(teamId: string): Promise<TeamKnowledge | null> {
   const db = getDb();
-  const snapshot = await getDoc(doc(db, TEAM_KNOWLEDGE_COLLECTION, teamId));
-  if (!snapshot.exists()) return null;
+  const snapshot = await db.collection(TEAM_KNOWLEDGE_COLLECTION).doc(teamId).get();
+  
+  if (!snapshot.exists) return null;
   return { teamId, ...snapshot.data() } as TeamKnowledge;
 }
 
 export async function saveTeamKnowledge(knowledge: TeamKnowledge): Promise<void> {
   const db = getDb();
-  await setDoc(doc(db, TEAM_KNOWLEDGE_COLLECTION, knowledge.teamId), {
+  await db.collection(TEAM_KNOWLEDGE_COLLECTION).doc(knowledge.teamId).set({
     ...knowledge,
     updatedAt: new Date().toISOString(),
   });
