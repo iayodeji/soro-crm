@@ -2,6 +2,7 @@ import React from "react";
 import { Sparkles, Radio, LogIn, LogOut, CheckCircle2, AlertCircle, Settings, Users } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { TeamMember } from "@/types";
+import type { NetworkStatus } from "@/hooks/useNetworkStatus";
 
 interface TopBarProps {
   user: any;
@@ -9,7 +10,7 @@ interface TopBarProps {
   onSignIn: () => void;
   onSignOut: () => void;
   isFirebaseSynced: boolean;
-  networkStatus: "online" | "offline";
+  networkStatus: NetworkStatus;
   teamMembers: TeamMember[];
   onManageTeam: () => void;
   currentTeamName?: string;
@@ -115,9 +116,21 @@ export const TopBar: React.FC<TopBarProps> = ({
           {/* Sync & Network Status Badge */}
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 bg-[#1F1612]/5 px-2.5 py-1 rounded-full border border-[#1F1612]/10">
-              <span className={`h-1.5 w-1.5 rounded-full ${networkStatus === "online" ? "bg-[#7A8452]" : "bg-[#B74A26] animate-ping"}`} />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  networkStatus === "online"
+                    ? "bg-[#7A8452]"
+                    : networkStatus === "checking"
+                    ? "bg-[#CFA331] animate-pulse"
+                    : "bg-[#B74A26] animate-ping"
+                }`}
+              />
               <span className="text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
-                {networkStatus === "online" ? "Connected" : "Offline"}
+                {networkStatus === "online"
+                  ? "Connected"
+                  : networkStatus === "checking"
+                  ? "Connecting"
+                  : "Offline"}
               </span>
             </div>
 

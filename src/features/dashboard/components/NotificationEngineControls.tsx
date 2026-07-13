@@ -43,11 +43,6 @@ export function NotificationEngineControls({
       <div className="pt-3.5 border-t border-[#1F1612]/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-[10px] font-mono text-[#1F1612]/50">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="w-1.5 h-1.5 rounded-full bg-[#7A8452] animate-pulse"></span>
-          <span>FCM Registration token: <code className="bg-[#1F1612]/5 px-1.5 py-0.5 rounded font-bold">Bk4SoroCrmVapidActiveProdKey</code></span>
-        </div>
-        <div className="flex items-center gap-1.5 text-[#B74A26] font-bold">
-          <Sparkles className="w-3 h-3 text-[#B74A26]" />
-          <span>To add your Gemini API Key: Settings menu (gear icon top-right) &gt; Secrets &gt; soroCRM</span>
         </div>
       </div>
     </div>

@@ -1,47 +1,41 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  User, 
-  signOut 
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  User,
+  signOut
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  setDoc, 
-  deleteDoc, 
-  getDocs, 
-  query, 
-  where,
-  onSnapshot
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where
 } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json";
+import { app, firebaseConfig } from "./firebaseConfig";
 import { Lead } from "../types";
 
 // Determine if we are using actual Firebase credentials or placeholder
 export const isFirebaseConfigured = (): boolean => {
   return (
-    firebaseConfig.apiKey && 
+    firebaseConfig.apiKey &&
     firebaseConfig.apiKey !== "mock-api-key-placeholder" &&
     !firebaseConfig.apiKey.includes("placeholder")
   );
 };
 
-// Initialize app only if actual configuration exists
-let app;
+// Initialize auth/db only if actual configuration exists
 export let auth: any = null;
 export let db: any = null;
 
-const parsedConfig = firebaseConfig as any;
-
 if (isFirebaseConfigured()) {
   try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app, parsedConfig.firestoreDatabaseId || "sorocrm");
+    db = getFirestore(app); // connects to the '(default)' Firestore database
   } catch (e) {
     console.error("Firebase initialization failed:", e);
   }
@@ -111,7 +105,7 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string |
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     cachedAccessToken = credential?.accessToken || null;
-    
+
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error) {
     console.error("Firebase Google Sign-in Error:", error);
@@ -137,12 +131,13 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 /**
- * Data Persistence Interface (Handles transparent sync between Firestore and LocalStorage)
+ * Data Persistence Interface (Firestore only — no localStorage fallback).
+ * If Firestore isn't configured or a call fails, these throw rather than
+ * silently diverging into per-browser local state, since that would mean
+ * different team members see different, unsynced data.
  */
 
-const LOCAL_STORAGE_KEY = "soro_leads_persistence";
-
-// Default seed leads for fresh dashboards
+// Default seed leads, used only to bootstrap a brand-new user's first workspace
 const defaultSeedLeads: Lead[] = [
   {
     id: "lead-1",
@@ -201,84 +196,49 @@ const defaultSeedLeads: Lead[] = [
  * Fetch all leads
  */
 export const fetchLeads = async (userId: string | null): Promise<Lead[]> => {
-  if (db && userId) {
-    try {
-      const q = query(collection(db, "leads"), where("userId", "==", userId));
-      const querySnapshot = await getDocs(q);
-      const leads: Lead[] = [];
-      querySnapshot.forEach((doc) => {
-        leads.push({ id: doc.id, ...doc.data() } as Lead);
-      });
-      // If Firestore is empty, seed it with default leads for this user
-      if (leads.length === 0) {
-        for (const defaultLead of defaultSeedLeads) {
-          const newLead = { ...defaultLead, userId };
-          await setDoc(doc(db, "leads", defaultLead.id), newLead);
-          leads.push(defaultLead);
-        }
-      }
-      return leads;
-    } catch (error) {
-      console.error("Firestore read error, falling back to local storage:", error);
-    }
+  if (!db || !userId) {
+    console.error("fetchLeads called without a configured db or userId");
+    return [];
   }
 
-  // Fallback to local storage
-  const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (localData) {
-    try {
-      return JSON.parse(localData);
-    } catch (e) {
-      return defaultSeedLeads;
+  const q = query(collection(db, "leads"), where("userId", "==", userId));
+  const querySnapshot = await getDocs(q);
+  const leads: Lead[] = [];
+  querySnapshot.forEach((doc) => {
+    leads.push({ id: doc.id, ...doc.data() } as Lead);
+  });
+
+  // If Firestore is empty, seed it with default leads for this user
+  if (leads.length === 0) {
+    for (const defaultLead of defaultSeedLeads) {
+      const newLead = { ...defaultLead, userId };
+      await setDoc(doc(db, "leads", defaultLead.id), newLead);
+      leads.push(defaultLead);
     }
-  } else {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(defaultSeedLeads));
-    return defaultSeedLeads;
   }
+  return leads;
 };
 
 /**
  * Save or update a lead
  */
 export const saveLead = async (userId: string | null, lead: Lead): Promise<void> => {
-  if (db && userId) {
-    try {
-      await setDoc(doc(db, "leads", lead.id), {
-        ...lead,
-        userId,
-        updatedAt: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error("Firestore write error, saving to local storage fallback:", error);
-    }
+  if (!db || !userId) {
+    throw new Error("saveLead called without a configured db or userId");
   }
-
-  // Update Local Storage
-  const leads = await fetchLeads(userId);
-  const index = leads.findIndex((l) => l.id === lead.id);
-  const updatedLead = { ...lead, updatedAt: new Date().toISOString() };
-  if (index >= 0) {
-    leads[index] = updatedLead;
-  } else {
-    leads.push(updatedLead);
-  }
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(leads));
+  await setDoc(doc(db, "leads", lead.id), {
+    ...lead,
+    userId,
+    updatedAt: new Date().toISOString()
+  });
 };
 
 /**
  * Delete a lead
  */
 export const deleteLead = async (userId: string | null, leadId: string): Promise<void> => {
-  if (db && userId) {
-    try {
-      await deleteDoc(doc(db, "leads", leadId));
-    } catch (error) {
-      console.error("Firestore delete error, removing from local storage fallback:", error);
-    }
+  if (!db || !userId) {
+    throw new Error("deleteLead called without a configured db or userId");
   }
-
-  // Update Local Storage
-  const leads = await fetchLeads(userId);
-  const filtered = leads.filter((l) => l.id !== leadId);
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
+  await deleteDoc(doc(db, "leads", leadId));
 };

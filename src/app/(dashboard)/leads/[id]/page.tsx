@@ -29,4 +29,4 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
       isViewer={isViewer}
     />
   );
-}
+} 
