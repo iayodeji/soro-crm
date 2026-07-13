@@ -52,21 +52,14 @@ let cachedAccessToken: string | null = null;
 
 /**
  * Initializes authentication state listener.
- * Automatically falls back to local demo user if Firebase is unconfigured.
+ * Throws if Firebase is not configured.
  */
 export const initAuth = (
   onAuthSuccess: (user: any, token: string | null) => void,
   onAuthFailure: () => void
 ) => {
   if (!auth) {
-    // Demo Mode fallback
-    const savedDemoUser = localStorage.getItem("soro_demo_user");
-    if (savedDemoUser) {
-      onAuthSuccess(JSON.parse(savedDemoUser), "demo-token");
-    } else {
-      onAuthFailure();
-    }
-    return () => {};
+    throw new Error("Firebase is not configured. Please set valid Firebase credentials.");
   }
 
   return onAuthStateChanged(auth, async (user: User | null) => {
@@ -74,7 +67,6 @@ export const initAuth = (
       if (cachedAccessToken) {
         onAuthSuccess(user, cachedAccessToken);
       } else if (!isSigningIn) {
-        // Token might need popup sign-in to refresh scopes or retrieve access token
         onAuthSuccess(user, null);
       }
     } else {
@@ -87,17 +79,9 @@ export const initAuth = (
 /**
  * Trigger Google Sign-in with scopes for Workspace integration
  */
-export const googleSignIn = async (): Promise<{ user: any; accessToken: string | null } | null> => {
+export const googleSignIn = async (): Promise<{ user: any; accessToken: string | null }> => {
   if (!auth) {
-    // Simulated sign-in for Demo Mode
-    const demoUser = {
-      uid: "demo-founder-123",
-      displayName: "Demo Founder",
-      email: "founder@sorocrm.co",
-      photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
-    };
-    localStorage.setItem("soro_demo_user", JSON.stringify(demoUser));
-    return { user: demoUser, accessToken: "demo-token" };
+    throw new Error("Firebase is not configured. Please set valid Firebase credentials.");
   }
 
   try {
@@ -119,7 +103,6 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string |
  * Logout of current session
  */
 export const logout = async () => {
-  localStorage.removeItem("soro_demo_user");
   if (auth) {
     await signOut(auth);
   }
@@ -197,8 +180,7 @@ const defaultSeedLeads: Lead[] = [
  */
 export const fetchLeads = async (userId: string | null): Promise<Lead[]> => {
   if (!db || !userId) {
-    console.error("fetchLeads called without a configured db or userId");
-    return [];
+    throw new Error("Firebase is not configured or user is not authenticated.");
   }
 
   const q = query(collection(db, "leads"), where("userId", "==", userId));

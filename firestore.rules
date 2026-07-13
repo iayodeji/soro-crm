@@ -19,10 +19,27 @@ service cloud.firestore {
       return isTeamMember(teamId) && memberRole(teamId) in ['owner', 'admin'];
     }
 
+    function isTeamOwner(teamId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid;
+    }
+
+    function hasPendingInvitation(token, teamId) {
+      return token is string &&
+        exists(/databases/$(database)/documents/invitations/$(token)) &&
+        let invite = get(/databases/$(database)/documents/invitations/$(token)).data;
+        invite.status == 'pending' &&
+        invite.teamId == teamId &&
+        request.time < timestamp(invite.expiresAt) &&
+        (invite.email == null || invite.email == '' || invite.email == request.auth.token.email);
+    }
+
     // /teams/{teamId}
     match /teams/{teamId} {
       allow read: if isTeamMember(teamId);
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        request.resource.data.id == teamId &&
+        request.resource.data.ownerId == request.auth.uid;
       allow update: if isTeamAdminOrOwner(teamId);
       allow delete: if isTeamMember(teamId) && memberRole(teamId) == 'owner';
     }
@@ -32,10 +49,21 @@ service cloud.firestore {
       allow read: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isTeamMember(resource.data.teamId));
       // A user can create their own membership (team creation, or accepting an invite)
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.id == request.auth.uid &&
+        membershipDocId == request.auth.uid + '_' + request.resource.data.teamId &&
+        (
+          (isTeamOwner(request.resource.data.teamId) && request.resource.data.role == 'owner') ||
+          hasPendingInvitation(request.resource.data.invitationToken, request.resource.data.teamId)
+        );
       // Users can update their own presence/activity; admins/owners can change anyone's role
       allow update: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isTeamAdminOrOwner(resource.data.teamId));
+        (
+          (resource.data.userId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'activity', 'lastActiveAt'])) ||
+          isTeamAdminOrOwner(resource.data.teamId)
+        );
       allow delete: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isTeamAdminOrOwner(resource.data.teamId));
     }
@@ -48,10 +76,29 @@ service cloud.firestore {
 
     // /invitations/{token}
     match /invitations/{token} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
       allow create: if isTeamAdminOrOwner(request.resource.data.teamId);
-      // status transitions (pending -> accepted/expired) happen from the joining user's client
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() &&
+        resource.data.email == request.auth.token.email &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['accepted', 'expired'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // /sessions/{sessionId}
+    match /sessions/{sessionId} {
+      allow read: if isTeamMember(resource.data.teamId);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isTeamMember(resource.data.teamId) && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['messages', 'summary', 'lastActivity', 'title']);
+      allow delete: if isTeamMember(resource.data.teamId) && resource.data.userId == request.auth.uid;
+    }
+
+    // /team_knowledge/{teamId}
+    match /team_knowledge/{teamId} {
+      allow read: if isTeamMember(teamId);
+      allow create: if isTeamAdminOrOwner(teamId);
+      allow update: if isTeamAdminOrOwner(teamId);
+      allow delete: if isTeamAdminOrOwner(teamId);
     }
   }
 }

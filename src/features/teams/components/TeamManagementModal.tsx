@@ -47,7 +47,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
   if (!isOpen) return null;
 
   // Determine current user's role in this team
-  const currentMemberRecord = teamMembers.find(m => m.id === currentUser?.uid || m.id === "demo-founder-123");
+  const currentMemberRecord = teamMembers.find(m => m.id === currentUser?.uid);
   const isAuthorizedToManage = currentMemberRecord?.role === "owner" || currentMemberRecord?.role === "admin";
 
   const handleCreateTeamSubmit = async (e: React.FormEvent) => {
@@ -74,14 +74,16 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
 
   const handleGenerateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim() || !currentTeam) return;
+    if (!currentTeam) return;
     setIsGeneratingInvite(true);
     try {
-      const invitation = await createInvitation(currentTeam.id, currentTeam.name, inviteEmail.trim(), inviteRole);
-      const link = `${window.location.origin}/?inviteToken=${invitation.token}`;
+      const invitation = await createInvitation(currentTeam.id, currentTeam.name, inviteEmail.trim() || "", inviteRole);
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const link = `${siteUrl}/?inviteToken=${invitation.token}`;
       setGeneratedLink(link);
       setInviteEmail("");
-      onLogActivity("Invite Generated", `Created secure workspace token for ${invitation.email} as ${invitation.role}.`, "success");
+      const inviteeLabel = invitation.email ? invitation.email : "a teammate";
+      onLogActivity("Invite Generated", `Created secure workspace token for ${inviteeLabel} as ${invitation.role}.`, "success");
     } catch (err) {
       console.error(err);
     } finally {
@@ -226,7 +228,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                 </h3>
                 <div className="divide-y divide-[#1F1612]/5 border border-[#1F1612]/10 rounded-2xl bg-white/50 overflow-hidden">
                   {teamMembers.map((member) => {
-                    const isSelf = member.id === currentUser?.uid || member.id === "demo-founder-123";
+                    const isSelf = member.id === currentUser?.uid;
                     const isOwner = member.role === "owner";
                     return (
                       <div key={member.id} className="p-4 flex items-center justify-between gap-4">
@@ -325,8 +327,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                   <form onSubmit={handleGenerateInvite} className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="email"
-                      required
-                      placeholder="teammate@email.com"
+                      placeholder="teammate@email.com (optional)"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       className="flex-1 bg-white border border-[#1F1612]/15 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#B74A26]"

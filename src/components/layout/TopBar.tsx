@@ -1,7 +1,7 @@
-import React from "react";
-import { Sparkles, Radio, LogIn, LogOut, CheckCircle2, AlertCircle, Settings, Users } from "lucide-react";
+import React, { useState } from "react";
+import { Sparkles, Radio, LogIn, LogOut, CheckCircle2, AlertCircle, Settings, Users, ChevronDown, Check, LayoutGrid } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { TeamMember } from "@/types";
+import { TeamMember, Team } from "@/types";
 import type { NetworkStatus } from "@/hooks/useNetworkStatus";
 
 interface TopBarProps {
@@ -13,7 +13,9 @@ interface TopBarProps {
   networkStatus: NetworkStatus;
   teamMembers: TeamMember[];
   onManageTeam: () => void;
-  currentTeamName?: string;
+  currentTeam?: Team | null;
+  myTeams: Team[];
+  onSwitchTeam: (team: Team) => void;
 }
 
 /**
@@ -29,8 +31,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   networkStatus,
   teamMembers,
   onManageTeam,
-  currentTeamName,
+  currentTeam,
+  myTeams,
+  onSwitchTeam,
 }) => {
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const currentTeamName = currentTeam?.name;
+
   return (
     <header className="border-b border-[#1F1612]/10 bg-[#FDFBF2]/80 backdrop-blur-md sticky top-0 z-40 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -40,9 +47,95 @@ export const TopBar: React.FC<TopBarProps> = ({
           <h1 className="text-3xl font-serif font-bold italic tracking-tight text-[#1F1612] select-none flex items-center gap-1.5">
             Soro <span className="text-[#B74A26] font-sans text-[10px] font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-[#B74A26]/10 uppercase">CRM</span>
           </h1>
-          <div className="hidden md:flex items-center space-x-1.5 pl-3 border-l border-[#1F1612]/10 text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/60 font-medium">
-            <Radio className="w-3.5 h-3.5 text-[#7A8452] animate-pulse" />
-            <span>Workspace: <strong className="text-[#1F1612] normal-case font-serif italic text-xs ml-1">{currentTeamName || "Loading..."}</strong></span>
+
+          {/* Workspace switcher dropdown */}
+          <div className="hidden md:block relative pl-3 border-l border-[#1F1612]/10">
+            <button
+              type="button"
+              onClick={() => setWorkspaceMenuOpen((open) => !open)}
+              className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/60 font-medium hover:text-[#B74A26] transition-colors cursor-pointer"
+              title="Switch workspace"
+            >
+              <Radio className="w-3.5 h-3.5 text-[#7A8452] animate-pulse" />
+              <span>Workspace:</span>
+              <strong className="text-[#1F1612] normal-case font-serif italic text-xs">
+                {currentTeamName || "Loading..."}
+              </strong>
+              <ChevronDown className={`w-3.5 h-3.5 text-[#1F1612]/50 transition-transform ${workspaceMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            <AnimatePresence>
+              {workspaceMenuOpen && (
+                <>
+                  {/* Click-away backdrop */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setWorkspaceMenuOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-3 top-12 z-50 w-72 rounded-2xl border border-[#1F1612]/10 bg-[#FDFBF2] shadow-2xl overflow-hidden"
+                  >
+                    <div className="px-4 py-2.5 border-b border-[#1F1612]/10 flex items-center gap-1.5">
+                      <LayoutGrid className="w-3.5 h-3.5 text-[#B74A26]" />
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/60">
+                        Your Workspaces ({myTeams.length})
+                      </span>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto py-1">
+                      {myTeams.length === 0 ? (
+                        <p className="px-4 py-3 text-xs text-[#1F1612]/50">No workspaces yet.</p>
+                      ) : (
+                        myTeams.map((team) => {
+                          const isActive = team.id === currentTeam?.id;
+                          return (
+                            <button
+                              key={team.id}
+                              type="button"
+                              onClick={() => {
+                                if (!isActive) onSwitchTeam(team);
+                                setWorkspaceMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors cursor-pointer ${
+                                isActive ? "bg-[#B74A26]/10" : "hover:bg-[#1F1612]/5"
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className={`block text-xs font-bold truncate ${isActive ? "text-[#B74A26]" : "text-[#1F1612]"}`}>
+                                  {team.name}
+                                </span>
+                                <span className="block text-[9px] font-mono text-[#1F1612]/40 truncate">
+                                  Created {new Date(team.createdAt).toLocaleDateString()}
+                                </span>
+                              </span>
+                              {isActive && (
+                                <Check className="w-4 h-4 text-[#B74A26] shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWorkspaceMenuOpen(false);
+                        onManageTeam();
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 border-t border-[#1F1612]/10 text-xs font-bold text-[#1F1612] hover:bg-[#1F1612]/5 transition-colors cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#B74A26]" />
+                      Manage &amp; create workspaces
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 

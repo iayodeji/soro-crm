@@ -34,8 +34,31 @@ export function useLeads(currentTeam: Team | null, logActivity: (input: LogActiv
       }
       return [...prev, updatedLead];
     });
-    if (currentTeam) await saveLeadForTeam(currentTeam.id, updatedLead);
-  }, [currentTeam]);
+
+    // --- DIAGNOSTIC: confirm whether the Firestore write actually runs ---
+    if (!currentTeam) {
+      console.warn(
+        "[useLeads] updateLead: currentTeam is NULL — lead is in local UI state ONLY and will NOT be written to Firestore.",
+        { leadId: updatedLead.id, name: updatedLead.name }
+      );
+      return;
+    }
+    try {
+      await saveLeadForTeam(currentTeam.id, updatedLead);
+      console.info("[useLeads] updateLead: Firestore write SUCCEEDED.", {
+        leadId: updatedLead.id,
+        teamId: currentTeam.id,
+      });
+    } catch (e: any) {
+      console.error("[useLeads] updateLead: Firestore write FAILED.", e);
+      logActivity({
+        eventType: "generic",
+        action: "Firestore Save Failed",
+        details: e?.message || "Unknown error while saving lead to Firestore.",
+        level: "warning",
+      });
+    }
+  }, [currentTeam, logActivity]);
 
   const deleteLead = useCallback(async (leadId: string) => {
     const leadToDelete = leads.find((l) => l.id === leadId);

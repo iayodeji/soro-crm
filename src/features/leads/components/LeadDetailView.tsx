@@ -123,8 +123,8 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
     setIsSheetsSyncing(true);
     
     try {
-      if (accessToken && accessToken !== "demo-token") {
-        const response = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
+if (accessToken) {
+          const response = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -173,8 +173,8 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
     setIsGmailSending(true);
 
     try {
-      if (accessToken && accessToken !== "demo-token" && lead.email) {
-        const utf8Subject = `=?utf-8?B?${btoa("Quick question about " + lead.company_name)}?=`;
+if (accessToken && lead.email) {
+          const utf8Subject = `=?utf-8?B?${btoa("Quick question about " + lead.company_name)}?=`;
         const emailContent = [
           `To: ${lead.email}`,
           `Subject: ${utf8Subject}`,
@@ -225,8 +225,8 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
     setIsCalendarScheduling(true);
 
     try {
-      if (accessToken && accessToken !== "demo-token") {
-        const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+if (accessToken) {
+          const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -262,8 +262,8 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
     setIsTasksCreating(true);
 
     try {
-      if (accessToken && accessToken !== "demo-token") {
-        const due1 = new Date();
+if (accessToken) {
+          const due1 = new Date();
         due1.setDate(due1.getDate() + 1);
         const task1Response = await fetch("https://tasks.googleapis.com/v1/lists/@default/tasks", {
           method: "POST",
