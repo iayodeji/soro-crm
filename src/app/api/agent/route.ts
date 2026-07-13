@@ -10,6 +10,7 @@ import {
 import type { AgentLeadContext, AgentPlan } from "@/features/agent/types";
 import { getOrCreateSession, addMessageToSession, getTeamKnowledge } from "@/features/agent/server/sessionService";
 import { getAuthUser } from "@/lib/serverAuth";
+import { isUserTeamMember } from "@/lib/teamAccess";
 
 function extractJson(text: string): AgentPlan {
   try {
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
 
   if (!teamId) {
     return NextResponse.json({ error: "teamId is required for session-aware agent." }, { status: 400 });
+  }
+
+  const isMember = await isUserTeamMember(teamId, userId);
+  if (!isMember) {
+    return NextResponse.json({ error: "You do not have access to this team." }, { status: 403 });
   }
 
   let session;

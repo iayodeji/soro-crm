@@ -121,6 +121,13 @@ export const fetchUserTeams = async (userId: string | null): Promise<Team[]> => 
 
 /**
  * Generate a secure, trackable, time-limited team invitation.
+ *
+ * NOTE: `email` is normalized to a plain string ('' for open/link-based
+ * invites) before writing. Firestore rejects `undefined` field values
+ * outright, and the security rules for both creating the membership
+ * (hasPendingInvitation) and later marking the invite accepted/expired
+ * treat '' the same as an open invite — so this needs to consistently be
+ * '' rather than undefined/null to match that logic end-to-end.
  */
 export const createInvitation = async (
   teamId: string,
@@ -133,10 +140,11 @@ export const createInvitation = async (
   const token = generateToken();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24-hour expiry
+  const normalizedEmail = (email ?? "").trim();
 
   const newInvitation: TeamInvitation = {
     id: inviteId,
-    email,
+    email: normalizedEmail,
     teamId,
     teamName,
     role,

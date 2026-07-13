@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionsByTeam } from "@/features/agent/server/sessionService";
 import { getAuthUser } from "@/lib/serverAuth";
+import { isUserTeamMember } from "@/lib/teamAccess";
 
 export async function GET(request: Request) {
   const authUser = await getAuthUser(request);
@@ -13,6 +14,11 @@ export async function GET(request: Request) {
 
   if (!teamId) {
     return NextResponse.json({ error: "teamId is required." }, { status: 400 });
+  }
+
+  const isMember = await isUserTeamMember(teamId, authUser.uid);
+  if (!isMember) {
+    return NextResponse.json({ error: "You do not have access to this team." }, { status: 403 });
   }
 
   try {
