@@ -48,7 +48,7 @@ export interface Team {
 
 export interface TeamInvitation {
   id: string;
-  email: string;
+  email?: string;
   teamId: string;
   teamName: string;
   role: "admin" | "editor" | "viewer" | "member";
@@ -67,4 +67,32 @@ export interface GeminiParseResponse {
   };
   market_fit_thesis: string;
   mom_test_questions: string[];
+}
+
+export interface SessionMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+}
+
+export interface Session {
+  id: string;
+  teamId: string;
+  userId: string;
+  threadId: string;
+  messages: SessionMessage[];
+  summary?: string;
+  title?: string;
+  lastActivity: string;
+  createdAt: string;
+}
+
+export interface TeamKnowledge {
+  teamId: string;
+  salesProcess?: string;
+  leadScoringCriteria?: string;
+  commonObjections?: string;
+  pastDecisions?: Array<{ topic: string; decision: string; decidedAt: string; decidedBy: string }>;
+  customInstructions?: string;
+  updatedAt: string;
 }

@@ -26,7 +26,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         networkStatus={networkStatus}
         teamMembers={teamMembers}
         onManageTeam={() => setIsTeamModalOpen(true)}
-        currentTeamName={currentTeam?.name}
+        currentTeam={currentTeam}
+        myTeams={myTeams}
+        onSwitchTeam={switchTeam}
       />
 
       {children}

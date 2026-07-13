@@ -1,6 +1,11 @@
 import { getGeminiClient } from "./geminiClient";
-import { resolveModel } from "./modelSelection";
-import { PARSE_LEAD_SYSTEM_INSTRUCTION, PARSE_LEAD_RESPONSE_SCHEMA } from "./parseLeadSchema";
+import { callGroq } from "./groqClient";
+import { resolveModel, isGroqModel } from "./modelSelection";
+import {
+  PARSE_LEAD_SYSTEM_INSTRUCTION,
+  PARSE_LEAD_RESPONSE_SCHEMA,
+  PARSE_LEAD_SYSTEM_INSTRUCTION_FOR_GROQ,
+} from "./parseLeadSchema";
 import type { ParseLeadRequestBody, ParseLeadResult } from "./types";
 
 function extractJson(text: string): ParseLeadResult {
@@ -13,27 +18,44 @@ function extractJson(text: string): ParseLeadResult {
   }
 }
 
-export async function parseLeadWithAI(input: ParseLeadRequestBody): Promise<ParseLeadResult> {
-  const model = resolveModel(input.modelPreset);
+async function callGemini(model: string, userPrompt: string, useSearchGrounding: boolean): Promise<string> {
   const ai = getGeminiClient();
-
-  const userPrompt = input.useSearchGrounding
-    ? `Please use Google Search to research the person or company mentioned here to find their real name, company, email, or general context, then extract and structure the details following the format. Unstructured text: ${input.rawText}`
-    : input.rawText;
-
   const config: any = {
     systemInstruction: PARSE_LEAD_SYSTEM_INSTRUCTION,
     responseMimeType: "application/json",
     responseSchema: PARSE_LEAD_RESPONSE_SCHEMA,
   };
-  if (input.useSearchGrounding) {
+  if (useSearchGrounding) {
     config.tools = [{ googleSearch: {} }];
   }
-
   const response = await ai.models.generateContent({ model, contents: userPrompt, config });
-
   const text = response.text;
   if (!text) throw new Error("No response text from Gemini API");
+  return text;
+}
 
-  return extractJson(text);
+async function callGroqWithFallback(model: string, userPrompt: string): Promise<string> {
+  const groqModel = resolveModel(model, "groq");
+  return callGroq({
+    systemInstruction: PARSE_LEAD_SYSTEM_INSTRUCTION_FOR_GROQ,
+    userPrompt,
+    model: groqModel,
+    responseFormat: "json_object",
+  });
+}
+
+export async function parseLeadWithAI(input: ParseLeadRequestBody): Promise<ParseLeadResult> {
+  const model = resolveModel(input.modelPreset);
+  const userPrompt = input.useSearchGrounding
+    ? `Please use Google Search to research the person or company mentioned here to find their real name, company, email, or general context, then extract and structure the details following the format. Unstructured text: ${input.rawText}`
+    : input.rawText;
+
+  try {
+    const text = await callGemini(model, userPrompt, input.useSearchGrounding);
+    return extractJson(text);
+  } catch (geminiError: any) {
+    console.warn("Gemini failed, falling back to Groq:", geminiError?.message || geminiError);
+    const text = await callGroqWithFallback(model, userPrompt);
+    return extractJson(text);
+  }
 }

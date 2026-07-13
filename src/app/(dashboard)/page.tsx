@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
-import { OmniInput } from "@/features/leads/components/OmniInput";
 import { KanbanBoard } from "@/features/leads/components/KanbanBoard";
 import { DeleteLeadModal } from "@/features/leads/components/DeleteLeadModal";
 import { DashboardHeader } from "@/features/dashboard/components/DashboardHeader";
@@ -10,13 +9,14 @@ import { NotificationEngineControls } from "@/features/dashboard/components/Noti
 import { StatsCards } from "@/features/dashboard/components/StatsCards";
 import { ActivityLedger } from "@/features/activity-feed/components/ActivityLedger";
 import { getLeadStats } from "@/features/leads/utils/leadStats";
+import { AgentCommandBar } from "@/features/agent/components/AgentCommandBar";
 
 export default function DashboardPage() {
   const router = useRouter();
   const {
     leads, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv,
     fcmEnabled, toggleFcm, soundEnabled, toggleSound, dispatchTestPush,
-    activityLogs, isViewer,
+    activityLogs, isViewer, accessToken, logActivity, user, currentTeam,
   } = useWorkspace();
 
   const [leadIdToConfirmDelete, setLeadIdToConfirmDelete] = useState<string | null>(null);
@@ -26,6 +26,27 @@ export default function DashboardPage() {
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
       <DashboardHeader stats={stats} />
+
+      <AgentCommandBar
+        leads={leads}
+        onUpdateLead={updateLead}
+        onParse={async (text, options) => { await parseLead(text, options); }}
+        isParsing={isParsing}
+        accessToken={accessToken}
+        logActivity={logActivity}
+        isViewer={!!isViewer}
+        teamId={currentTeam?.id || ""}
+        userId={user?.uid || ""}
+      />
+
+      <KanbanBoard
+        leads={leads}
+        onUpdateLead={updateLead}
+        onDeleteLead={async (id: string) => { setLeadIdToConfirmDelete(id); }}
+        onSelectLead={(lead: { id: string }) => router.push(`/leads/${lead.id}`)}
+        onAddNewLead={addNewLead}
+        isViewer={isViewer}
+      />
 
       <NotificationEngineControls
         onExportCsv={exportCsv}
@@ -37,17 +58,6 @@ export default function DashboardPage() {
       />
 
       <StatsCards stats={stats} />
-
-      <OmniInput onParse={async (t, o) => { await parseLead(t, o); }} isParsing={isParsing} />
-
-      <KanbanBoard
-        leads={leads}
-        onUpdateLead={updateLead}
-        onDeleteLead={async (id: string) => { setLeadIdToConfirmDelete(id); }}
-        onSelectLead={(lead: { id: string }) => router.push(`/leads/${lead.id}`)}
-        onAddNewLead={addNewLead}
-        isViewer={isViewer}
-      />
 
       <ActivityLedger logs={activityLogs} />
 

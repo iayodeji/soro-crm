@@ -8,13 +8,30 @@ import {
   query,
   where,
   onSnapshot,
-  updateDoc
+  updateDoc,
+  runTransaction
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
 import { Team, TeamMember, TeamInvitation, Lead } from "../types";
 
-// Quick random ID generator
-const generateId = () => Math.random().toString(36).substring(2, 11);
+// Quick random ID generator with crypto fallback
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const array = new Uint8Array(6);
+    crypto.getRandomValues(array);
+    return Array.from(array, (byte) => byte.toString(36)).join("");
+  }
+  return Math.random().toString(36).substring(2, 11);
+};
+
+const generateToken = () => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return "tok-" + Array.from(array, (byte) => byte.toString(36)).join("");
+  }
+  return "tok-" + generateId() + generateId();
+};
 
 const requireDb = () => {
   if (!isFirebaseConfigured() || !db) {
@@ -65,8 +82,12 @@ export const createTeam = async (
  * Fetch all teams that the user is currently a member of.
  */
 export const fetchUserTeams = async (userId: string | null): Promise<Team[]> => {
-  if (!userId) return [];
+  if (!userId) {
+    console.warn("[teamService] fetchUserTeams: no userId provided — returning empty list.");
+    return [];
+  }
   const db = requireDb();
+  console.info("[teamService] fetchUserTeams: querying Firestore for workspaces of user", userId);
 
   const q = query(collection(db, "team_memberships"), where("userId", "==", userId));
   const querySnapshot = await getDocs(q);
@@ -74,19 +95,28 @@ export const fetchUserTeams = async (userId: string | null): Promise<Team[]> => 
   querySnapshot.forEach((doc) => {
     teamIds.push(doc.data().teamId);
   });
+  console.info(`[teamService] fetchUserTeams: found ${teamIds.length} membership(s) for user.`, teamIds);
 
-  if (teamIds.length === 0) return [];
+  if (teamIds.length === 0) {
+    console.info("[teamService] fetchUserTeams: user belongs to no workspaces yet.");
+    return [];
+  }
 
   const teams: Team[] = [];
-  const chunkedIds = chunkArray(teamIds, 10);
-  for (const chunk of chunkedIds) {
-    const teamQuery = query(collection(db, "teams"), where("id", "in", chunk));
-    const teamSnapshot = await getDocs(teamQuery);
-    teamSnapshot.forEach((doc) => {
-      teams.push(doc.data() as Team);
-    });
-  }
-  return teams.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // Fetch each team by document id (getDoc) rather than a `where("id", "in", [...])`
+  // QUERY. The teams read rule uses exists(team_memberships/{uid}_{teamId}), and Firebase
+  // rejects queries that can't prove that cross-collection condition from the id filter
+  // alone ("Missing or insufficient permissions"). A per-document getDoc evaluates the
+  // rule correctly for each team the user is actually a member of.
+  await Promise.all(
+    teamIds.map(async (teamId) => {
+      const teamSnap = await getDoc(doc(db, "teams", teamId));
+      if (teamSnap.exists()) teams.push(teamSnap.data() as Team);
+    })
+  );
+  const sorted = teams.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  console.info(`[teamService] fetchUserTeams: pulled ${sorted.length} workspace(s) from Firestore.`, sorted.map((t) => ({ id: t.id, name: t.name })));
+  return sorted;
 };
 
 /**
@@ -100,7 +130,7 @@ export const createInvitation = async (
 ): Promise<TeamInvitation> => {
   const db = requireDb();
   const inviteId = "invite-" + generateId();
-  const token = "tok-" + generateId() + generateId();
+  const token = generateToken();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24-hour expiry
 
@@ -129,37 +159,54 @@ export const joinTeamViaInvitation = async (
   userDetails: { name: string; email: string; avatarUrl: string }
 ): Promise<Team | null> => {
   const db = requireDb();
-  const inviteDocRef = doc(db, "invitations", token);
-  const inviteSnap = await getDoc(inviteDocRef);
 
-  if (!inviteSnap.exists()) return null;
-  const invite = inviteSnap.data() as TeamInvitation;
+  try {
+    return await runTransaction(db, async (transaction) => {
+      const inviteDocRef = doc(db, "invitations", token);
+      const inviteSnap = await transaction.get(inviteDocRef);
 
-  if (invite.status !== "pending") return null;
-  if (new Date(invite.expiresAt).getTime() < Date.now()) {
-    await updateDoc(inviteDocRef, { status: "expired" });
-    return null;
+      if (!inviteSnap.exists()) return null;
+      const invite = inviteSnap.data() as TeamInvitation;
+
+      if (invite.status !== "pending") return null;
+      if (new Date(invite.expiresAt).getTime() < Date.now()) {
+        transaction.update(inviteDocRef, { status: "expired" });
+        return null;
+      }
+
+      const membershipId = `${userId}_${invite.teamId}`;
+      const membershipRef = doc(db, "team_memberships", membershipId);
+      const membershipSnap = await transaction.get(membershipRef);
+
+      if (membershipSnap.exists()) {
+        const teamSnap = await transaction.get(doc(db, "teams", invite.teamId));
+        return teamSnap.exists() ? (teamSnap.data() as Team) : null;
+      }
+
+      const newMembership = {
+        id: userId,
+        userId: userId,
+        teamId: invite.teamId,
+        name: userDetails.name,
+        email: userDetails.email,
+        avatarUrl: userDetails.avatarUrl,
+        status: "active",
+        activity: "viewing",
+        role: invite.role,
+        invitationToken: token,
+        lastActiveAt: new Date().toISOString()
+      };
+
+      transaction.set(membershipRef, newMembership);
+      transaction.update(inviteDocRef, { status: "accepted" });
+
+      const teamSnap = await transaction.get(doc(db, "teams", invite.teamId));
+      return teamSnap.exists() ? (teamSnap.data() as Team) : null;
+    });
+  } catch (e) {
+    console.error("Invite processing error", e);
+    throw e;
   }
-
-  const membershipId = `${userId}_${invite.teamId}`;
-  const newMembership = {
-    id: userId,
-    userId: userId,
-    teamId: invite.teamId,
-    name: userDetails.name,
-    email: userDetails.email,
-    avatarUrl: userDetails.avatarUrl,
-    status: "active",
-    activity: "viewing",
-    role: invite.role,
-    lastActiveAt: new Date().toISOString()
-  };
-
-  await setDoc(doc(db, "team_memberships", membershipId), newMembership);
-  await updateDoc(inviteDocRef, { status: "accepted" });
-
-  const teamSnap = await getDoc(doc(db, "teams", invite.teamId));
-  return teamSnap.exists() ? (teamSnap.data() as Team) : null;
 };
 
 /**
@@ -280,11 +327,16 @@ export const saveLeadForTeam = async (
   lead: Lead
 ): Promise<void> => {
   const db = requireDb();
+  console.info("[teamService] saveLeadForTeam: writing leads/" + lead.id, {
+    teamId,
+    dbConfigured: isFirebaseConfigured(),
+  });
   await setDoc(doc(db, "leads", lead.id), {
     ...lead,
     teamId,
     updatedAt: new Date().toISOString()
   });
+  console.info("[teamService] saveLeadForTeam: write OK for leads/" + lead.id);
 };
 
 /**
@@ -317,13 +369,4 @@ export const deleteTeamWorkspace = async (teamId: string): Promise<void> => {
   for (const lDoc of leadsSnapshot.docs) {
     await deleteDoc(doc(db, "leads", lDoc.id));
   }
-};
-
-// Helper function to chunk array for firestore limits
-const chunkArray = <T>(array: T[], size: number): T[][] => {
-  const result: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
-  }
-  return result;
 };

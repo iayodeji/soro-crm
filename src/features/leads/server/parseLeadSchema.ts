@@ -42,3 +42,21 @@ export const PARSE_LEAD_RESPONSE_SCHEMA = {
   },
   required: ["parsed_lead", "market_fit_thesis", "mom_test_questions"],
 };
+
+export const PARSE_LEAD_SYSTEM_INSTRUCTION_FOR_GROQ = `${PARSE_LEAD_SYSTEM_INSTRUCTION}
+
+You must return a JSON object with exactly this structure:
+{
+  "parsed_lead": {
+    "name": "string or null",
+    "company_name": "string or null",
+    "email": "string or null",
+    "phone": "string or null"
+  },
+  "market_fit_thesis": "A concise 2-sentence target audience market-fit thesis.",
+  "mom_test_questions": [
+    "Non-leading question 1 focusing on past workflow behavior",
+    "Non-leading question 2 focusing on how they currently solve the problem",
+    "Non-leading question 3 focusing on their latest operational bottleneck"
+  ]
+}`;
