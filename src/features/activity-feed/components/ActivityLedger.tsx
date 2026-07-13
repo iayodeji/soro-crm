@@ -10,7 +10,7 @@ export function ActivityLedger({ logs }: ActivityLedgerProps) {
     <div className="bg-white/40 border border-[#1F1612]/10 rounded-2xl p-5 shadow-sm space-y-4 max-w-7xl mx-auto">
       <div className="flex items-center space-x-2 border-b border-[#1F1612]/5 pb-3">
         <History className="w-4 h-4 text-[#1F1612]/50" />
-        <h4 className="text-[11px] uppercase font-bold tracking-tighter text-[#1F1612]/70">Discovery Pipeline Audit Ledger</h4>
+        <h4 className="text-[11px] uppercase font-bold tracking-tighter text-[#1F1612]/70">Discovery Pipeline Logs</h4>
       </div>
       <div className="max-h-40 overflow-y-auto space-y-2.5 pr-2">
         {logs.length === 0 ? (

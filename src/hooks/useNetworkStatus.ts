@@ -20,9 +20,9 @@ const PROBE_TIMEOUT_MS = 5_000;
  *      `online` events, on a heartbeat, and when the tab regains focus.
  */
 export function useNetworkStatus(): NetworkStatus {
-  const [status, setStatus] = useState<NetworkStatus>(() =>
-    typeof navigator !== "undefined" && navigator.onLine ? "checking" : "offline"
-  );
+  // Start from a deterministic default so server and client render identically.
+  // The real status is resolved after mount via the initial probe below.
+  const [status, setStatus] = useState<NetworkStatus>("offline");
 
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

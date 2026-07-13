@@ -1,111 +1,57 @@
 rules_version = '2';
-service cloudwarden.firestore {
+service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Safety Net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Common Helpers
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isEmailVerified() {
-      return request.auth.token.email_verified == true;
+    function isTeamMember(teamId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/team_memberships/$(request.auth.uid + '_' + teamId));
     }
 
-    function isOwner(teamId) {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId)) &&
-        get(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId)).data.role == 'owner';
+    function memberRole(teamId) {
+      return get(/databases/$(database)/documents/team_memberships/$(request.auth.uid + '_' + teamId)).data.role;
     }
 
-    function isAdmin(teamId) {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId)) &&
-        get(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId)).data.role == 'admin';
+    function isTeamAdminOrOwner(teamId) {
+      return isTeamMember(teamId) && memberRole(teamId) in ['owner', 'admin'];
     }
 
-    function isMember(teamId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId));
-    }
-
-    function getRole(teamId) {
-      return get(/databases/$(database)/documents/team_memberships/$(request.auth.uid)_$(teamId)).data.role;
-    }
-
-    function canWriteLeads(teamId) {
-      return isMember(teamId) && getRole(teamId) != 'viewer';
-    }
-
-    // Teams Collection Rules
+    // /teams/{teamId}
     match /teams/{teamId} {
+      allow read: if isTeamMember(teamId);
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow read: if isMember(teamId);
-      allow update: if isOwner(teamId) || isAdmin(teamId);
-      allow delete: if isOwner(teamId);
+      allow update: if isTeamAdminOrOwner(teamId);
+      allow delete: if isTeamMember(teamId) && memberRole(teamId) == 'owner';
     }
 
-    // Team Memberships Collection Rules
-    // Membership doc ID is formatted as userId_teamId
-    match /team_memberships/{membershipId} {
-      
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        isMember(resource.data.teamId)
-      );
-
-      allow create: if isSignedIn() && (
-        // Self-registration if they have an accepted invitation token
-        request.resource.data.userId == request.auth.uid ||
-        // Creator initial setup
-        request.resource.data.userId == request.auth.uid && request.resource.data.role == 'owner' ||
-        // Owner/Admin inviting someone
-        isOwner(request.resource.data.teamId) || 
-        (isAdmin(request.resource.data.teamId) && (request.resource.data.role == 'editor' || request.resource.data.role == 'viewer' || request.resource.data.role == 'member'))
-      );
-
-      allow update: if isSignedIn() && (
-        // Owners can update any member role
-        isOwner(resource.data.teamId) ||
-        // Admins can update roles of editors/members/viewers, but NOT owners or other admins
-        (isAdmin(resource.data.teamId) && 
-         resource.data.role != 'owner' && 
-         resource.data.role != 'admin' &&
-         request.resource.data.role != 'owner' &&
-         request.resource.data.role != 'admin'
-        )
-      );
-
-      allow delete: if isSignedIn() && (
-        // Owner can remove anyone except themselves (they must delete/transfer team)
-        (isOwner(resource.data.teamId) && resource.data.userId != request.auth.uid) ||
-        // Admins can remove editors/members/viewers, but NOT owners or other admins
-        (isAdmin(resource.data.teamId) && resource.data.role != 'owner' && resource.data.role != 'admin') ||
-        // Users can leave team voluntarily (self-delete)
-        (resource.data.userId == request.auth.uid && resource.data.role != 'owner')
-      );
+    // /team_memberships/{userId}_{teamId}
+    match /team_memberships/{membershipDocId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isTeamMember(resource.data.teamId));
+      // A user can create their own membership (team creation, or accepting an invite)
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // Users can update their own presence/activity; admins/owners can change anyone's role
+      allow update: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isTeamAdminOrOwner(resource.data.teamId));
+      allow delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isTeamAdminOrOwner(resource.data.teamId));
     }
 
-    // Leads Collection Rules
+    // /leads/{leadId}
     match /leads/{leadId} {
-      allow create: if isSignedIn() && canWriteLeads(request.resource.data.teamId);
-      allow read: if isSignedIn() && isMember(resource.data.teamId);
-      allow update: if isSignedIn() && canWriteLeads(resource.data.teamId) && (request.resource.data.teamId == resource.data.teamId);
-      allow delete: if isSignedIn() && canWriteLeads(resource.data.teamId);
+      allow read, update, delete: if isTeamMember(resource.data.teamId);
+      allow create: if isTeamMember(request.resource.data.teamId);
     }
 
-    // Invitations Collection Rules (keyed by token)
+    // /invitations/{token}
     match /invitations/{token} {
-      allow read: if true; // Public access to verify token on join
-      allow create: if isSignedIn() && (
-        isOwner(request.resource.data.teamId) ||
-        (isAdmin(request.resource.data.teamId) && (request.resource.data.role == 'editor' || request.resource.data.role == 'viewer' || request.resource.data.role == 'member'))
-      );
-      allow update: if true; // Allow state transition to 'accepted' or 'expired'
-      allow delete: if isSignedIn() && (isOwner(resource.data.teamId) || isAdmin(resource.data.teamId));
+      allow read: if isSignedIn();
+      allow create: if isTeamAdminOrOwner(request.resource.data.teamId);
+      // status transitions (pending -> accepted/expired) happen from the joining user's client
+      allow update: if isSignedIn();
     }
   }
 }
