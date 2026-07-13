@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getTeamKnowledge, saveTeamKnowledge } from "@/features/agent/server/sessionService";
 import { getAuthUser } from "@/lib/serverAuth";

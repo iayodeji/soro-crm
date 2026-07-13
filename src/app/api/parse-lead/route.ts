@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { validateParseLeadRequest, isInvalidParseLeadRequest } from "@/features/leads/server/validateParseLeadRequest";
 import { parseLead } from "@/features/leads/server/parseLead";

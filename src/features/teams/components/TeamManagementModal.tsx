@@ -129,38 +129,38 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
         className="bg-[#FDFBF2] w-full max-w-2xl rounded-3xl border border-[#1F1612]/15 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
       >
         {/* Header Section */}
-        <div className="p-6 border-b border-[#1F1612]/10 flex items-center justify-between bg-white/40">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-[#B74A26]/10 text-[#B74A26]">
-              <Users className="w-5 h-5" />
+        <div className="p-4 sm:p-6 border-b border-[#1F1612]/10 flex items-center justify-between bg-white/40">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="p-2 sm:p-2.5 rounded-2xl bg-[#B74A26]/10 text-[#B74A26]">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <span className="text-[9px] uppercase font-mono font-bold tracking-widest text-[#B74A26] block">
-                Multi-Tenant Team Engine
+              <span className="text-[8px] sm:text-[9px] uppercase font-mono font-bold tracking-widest text-[#B74A26] block">
+                Multi-Tenant Engine
               </span>
-              <h2 className="font-serif font-bold text-xl text-[#1F1612]">
+              <h2 className="font-serif font-bold text-lg sm:text-xl text-[#1F1612] truncate max-w-[180px] sm:max-w-none">
                 {currentTeam?.name || "Workspace Settings"}
               </h2>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-[#1F1612]/5 text-[#1F1612]/40 hover:text-[#1F1612] transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl hover:bg-[#1F1612]/5 text-[#1F1612]/40 hover:text-[#1F1612] transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Workspace Quick-Selector banner */}
-        <div className="bg-[#1F1612] text-[#FDFBF2] px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="bg-[#1F1612] text-[#FDFBF2] px-4 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 text-xs">
           <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-white/75">
-            <Sparkles className="w-3.5 h-3.5 text-[#CFA331]" />
-            <span>Active Tenant Partition:</span>
-            <span className="bg-[#B74A26] text-white px-2 py-0.5 rounded-md font-bold">{currentTeam?.id}</span>
+            <Sparkles className="w-3 h-3 text-[#CFA331]" />
+            <span>Active:</span>
+            <span className="bg-[#B74A26] text-white px-1.5 sm:px-2 py-0.5 rounded-md font-bold text-[10px] sm:text-xs truncate max-w-[120px] sm:max-w-none">{currentTeam?.id}</span>
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-white/60">Switch Workspace:</span>
+            <span className="text-[10px] text-white/60 hidden sm:inline">Switch:</span>
             <select
               value={currentTeam?.id || ""}
               onChange={(e) => {
@@ -170,7 +170,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                   onLogActivity("Workspace Shifted", `Switched active pipeline directory to "${selected.name}".`, "info");
                 }
               }}
-              className="bg-white/10 text-white border border-white/20 rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none cursor-pointer"
+              className="bg-white/10 text-white border border-white/20 rounded-lg px-2 py-1 text-[10px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
             >
               {myTeams.map(team => (
                 <option key={team.id} value={team.id} className="text-[#1F1612] font-semibold bg-white">
@@ -182,10 +182,10 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-[#1F1612]/5 px-6 pt-3 bg-white/20">
+        <div className="flex border-b border-[#1F1612]/5 px-4 sm:px-6 pt-3 bg-white/20 overflow-x-auto">
           <button
             onClick={() => setActiveTab("members")}
-            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 px-4 transition-all duration-200 cursor-pointer ${
+            className={`pb-3 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-b-2 px-3 sm:px-4 transition-all duration-200 cursor-pointer whitespace-nowrap ${
               activeTab === "members" 
                 ? "border-[#B74A26] text-[#B74A26]" 
                 : "border-transparent text-[#1F1612]/50 hover:text-[#1F1612]"
@@ -195,7 +195,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
           </button>
           <button
             onClick={() => setActiveTab("workspaces")}
-            className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 px-4 transition-all duration-200 cursor-pointer ${
+            className={`pb-3 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-b-2 px-3 sm:px-4 transition-all duration-200 cursor-pointer whitespace-nowrap ${
               activeTab === "workspaces" 
                 ? "border-[#B74A26] text-[#B74A26]" 
                 : "border-transparent text-[#1F1612]/50 hover:text-[#1F1612]"
@@ -206,19 +206,19 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
           {isAuthorizedToManage && (
             <button
               onClick={() => setActiveTab("settings")}
-              className={`pb-3 text-xs font-bold uppercase tracking-wider border-b-2 px-4 transition-all duration-200 cursor-pointer ${
+              className={`pb-3 text-[10px] sm:text-xs font-bold uppercase tracking-wider border-b-2 px-3 sm:px-4 transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 activeTab === "settings" 
                   ? "border-[#B74A26] text-[#B74A26]" 
                   : "border-transparent text-[#1F1612]/50 hover:text-[#1F1612]"
               }`}
             >
-              ⚙️ Team Settings & Billing
+              ⚙️ Settings
             </button>
           )}
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 flex-1">
           {activeTab === "members" && (
             <div className="space-y-6">
               {/* Member management panel */}
@@ -227,89 +227,87 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                   Current Directory Access
                 </h3>
                 <div className="divide-y divide-[#1F1612]/5 border border-[#1F1612]/10 rounded-2xl bg-white/50 overflow-hidden">
-                  {teamMembers.map((member) => {
-                    const isSelf = member.id === currentUser?.uid;
-                    const isOwner = member.role === "owner";
-                    return (
-                      <div key={member.id} className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <div className="relative">
-                            <img
-                              src={member.avatarUrl}
-                              alt={member.name}
-                              className="w-10 h-10 rounded-xl object-cover border border-[#1F1612]/10"
-                            />
-                            <span className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 border-[#FDFBF2] ${
-                              member.status === "active" 
-                                ? "bg-[#7A8452]" 
-                                : member.status === "away" 
-                                ? "bg-[#CFA331]" 
-                                : "bg-[#1F1612]/30"
-                            }`} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-[#1F1612] truncate flex items-center gap-1.5">
-                              {member.name}
-                              {isSelf && (
-                                <span className="bg-[#1F1612]/5 text-[#1F1612]/60 font-mono text-[9px] px-1.5 py-0.5 rounded">You</span>
-                              )}
-                            </p>
-                            <p className="text-[10px] text-[#1F1612]/50 truncate font-mono">
-                              {member.email || "no-email@sorocrm.co"}
-                            </p>
-                          </div>
-                        </div>
+                   {teamMembers.map((member) => {
+                     const isSelf = member.id === currentUser?.uid;
+                     const isOwner = member.role === "owner";
+                     return (
+                       <div key={member.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                         <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+                           <div className="relative shrink-0">
+                             <img
+                               src={member.avatarUrl}
+                               alt={member.name}
+                               className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border border-[#1F1612]/10"
+                             />
+                             <span className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-[#FDFBF2] ${
+                               member.status === "active" 
+                                 ? "bg-[#7A8452]" 
+                                 : member.status === "away" 
+                                 ? "bg-[#CFA331]" 
+                                 : "bg-[#1F1612]/30"
+                             }`} />
+                           </div>
+                           <div className="min-w-0">
+                             <p className="text-xs font-bold text-[#1F1612] truncate flex items-center gap-1">
+                               {member.name}
+                               {isSelf && (
+                                 <span className="bg-[#1F1612]/5 text-[#1F1612]/60 font-mono text-[8px] sm:text-[9px] px-1 py-0.5 rounded">You</span>
+                               )}
+                             </p>
+                             <p className="text-[10px] text-[#1F1612]/50 truncate font-mono">
+                               {member.email || "no-email@sorocrm.co"}
+                             </p>
+                           </div>
+                         </div>
 
-                        <div className="flex items-center gap-3">
-                          {/* Sync status chip */}
-                          <span className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded-full ${
-                            member.activity === "editing" 
-                              ? "bg-[#B74A26]/10 text-[#B74A26]" 
-                              : member.activity === "idle"
-                              ? "bg-[#CFA331]/10 text-[#CFA331]"
-                              : "bg-[#7A8452]/10 text-[#7A8452]"
-                          }`}>
-                            {member.activity || "viewing"}
-                          </span>
+                         <div className="flex items-center gap-2 sm:gap-3 pl-10 sm:pl-0">
+                           <span className={`text-[8px] sm:text-[9px] font-mono uppercase px-1.5 sm:px-2 py-0.5 rounded-full ${
+                             member.activity === "editing" 
+                               ? "bg-[#B74A26]/10 text-[#B74A26]" 
+                               : member.activity === "idle"
+                               ? "bg-[#CFA331]/10 text-[#CFA331]"
+                               : "bg-[#7A8452]/10 text-[#7A8452]"
+                           }`}>
+                             {member.activity || "viewing"}
+                           </span>
 
-                          {/* Member action button controls */}
-                          <div className="flex items-center gap-1">
-                            {isAuthorizedToManage && !isOwner && !isSelf ? (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={member.role || "member"}
-                                  onChange={(e) => handleChangeRole(member.id, e.target.value as any, member.role)}
-                                  disabled={
-                                    currentMemberRecord?.role === "admin" && (member.role === "admin" || member.role === "owner")
-                                  }
-                                  className="bg-white border border-[#1F1612]/15 rounded-xl px-2.5 py-1 text-[11px] font-bold font-mono uppercase focus:outline-none cursor-pointer disabled:opacity-50"
-                                >
-                                  {currentMemberRecord?.role === "owner" && <option value="admin">Admin</option>}
-                                  <option value="editor">Editor</option>
-                                  <option value="viewer">Viewer</option>
-                                  <option value="member">Member</option>
-                                </select>
-                                <button
-                                  onClick={() => handleKickMember(member.id, member.name, member.role)}
-                                  disabled={
-                                    currentMemberRecord?.role === "admin" && (member.role === "admin" || member.role === "owner")
-                                  }
-                                  className="p-1.5 rounded-xl border border-red-500/15 hover:bg-red-500/5 text-red-600 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title="Revoke access"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] font-mono uppercase font-bold text-[#1F1612]/50 px-2.5 py-1 bg-[#1F1612]/5 rounded-xl border border-[#1F1612]/5">
-                                {member.role || "member"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                           <div className="flex items-center gap-1">
+                             {isAuthorizedToManage && !isOwner && !isSelf ? (
+                               <div className="flex items-center gap-1.5">
+                                 <select
+                                   value={member.role || "member"}
+                                   onChange={(e) => handleChangeRole(member.id, e.target.value as any, member.role)}
+                                   disabled={
+                                     currentMemberRecord?.role === "admin" && (member.role === "admin" || member.role === "owner")
+                                   }
+                                   className="bg-white border border-[#1F1612]/15 rounded-xl px-2 py-1 text-[10px] sm:text-[11px] font-bold font-mono uppercase focus:outline-none cursor-pointer disabled:opacity-50"
+                                 >
+                                   {currentMemberRecord?.role === "owner" && <option value="admin">Admin</option>}
+                                   <option value="editor">Editor</option>
+                                   <option value="viewer">Viewer</option>
+                                   <option value="member">Member</option>
+                                 </select>
+                                 <button
+                                   onClick={() => handleKickMember(member.id, member.name, member.role)}
+                                   disabled={
+                                     currentMemberRecord?.role === "admin" && (member.role === "admin" || member.role === "owner")
+                                   }
+                                   className="p-1.5 rounded-xl border border-red-500/15 hover:bg-red-500/5 text-red-600 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                   title="Revoke access"
+                                 >
+                                   <Trash2 className="w-3.5 h-3.5" />
+                                 </button>
+                               </div>
+                             ) : (
+                               <span className="text-[10px] font-mono uppercase font-bold text-[#1F1612]/50 px-2 py-1 bg-[#1F1612]/5 rounded-xl border border-[#1F1612]/5">
+                                 {member.role || "member"}
+                               </span>
+                             )}
+                           </div>
+                         </div>
+                       </div>
+                     );
+                   })}
                 </div>
               </div>
 
@@ -402,7 +400,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                 <h3 className="text-xs uppercase font-mono font-bold tracking-wider text-[#1F1612]/60">
                   Your Pipeline Workspaces
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   {myTeams.map((team) => {
                     const isSelected = team.id === currentTeam?.id;
                     return (
@@ -412,7 +410,7 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                           onTeamSelected(team);
                           onLogActivity("Workspace Shifted", `Switched active pipeline directory to "${team.name}".`, "info");
                         }}
-                        className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between h-28 relative ${
+                        className={`p-3 sm:p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between h-auto sm:h-28 relative ${
                           isSelected
                             ? "bg-white border-[#B74A26] shadow-md ring-1 ring-[#B74A26]"
                             : "bg-white/40 border-[#1F1612]/10 hover:border-[#1F1612]/30 hover:bg-white/70"
@@ -491,17 +489,17 @@ export const TeamManagementModal: React.FC<TeamManagementModalProps> = ({
                 </p>
 
                 {/* Plan overview & Sim controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                  <div className="border border-[#1F1612]/10 bg-white p-3 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 pt-1">
+                  <div className="border border-[#1F1612]/10 bg-white p-2.5 sm:p-3 rounded-xl">
                     <span className="text-[9px] font-mono text-[#1F1612]/50 uppercase tracking-wider block">Price</span>
                     <span className="text-lg font-serif font-bold italic text-[#B74A26]">$49<span className="text-xs font-sans not-italic text-[#1F1612]/50">/mo</span></span>
                   </div>
-                  <div className="border border-[#1F1612]/10 bg-white p-3 rounded-xl">
-                    <span className="text-[9px] font-mono text-[#1F1612]/50 uppercase tracking-wider block">Seats Allocation</span>
-                    <span className="text-lg font-serif font-bold italic text-[#B74A26]">{teamMembers.length} <span className="text-xs font-sans not-italic text-[#1F1612]/50">/ 10 max</span></span>
+                  <div className="border border-[#1F1612]/10 bg-white p-2.5 sm:p-3 rounded-xl">
+                    <span className="text-[9px] font-mono text-[#1F1612]/50 uppercase tracking-wider block">Seats</span>
+                    <span className="text-lg font-serif font-bold italic text-[#B74A26]">{teamMembers.length} <span className="text-xs font-sans not-italic text-[#1F1612]/50">/ 10</span></span>
                   </div>
-                  <div className="border border-[#1F1612]/10 bg-white p-3 rounded-xl">
-                    <span className="text-[9px] font-mono text-[#1F1612]/50 uppercase tracking-wider block">Billing Renewal</span>
+                  <div className="border border-[#1F1612]/10 bg-white p-2.5 sm:p-3 rounded-xl">
+                    <span className="text-[9px] font-mono text-[#1F1612]/50 uppercase tracking-wider block">Renewal</span>
                     <span className="text-lg font-serif font-bold italic text-[#B74A26]">Aug 1, 2026</span>
                   </div>
                 </div>

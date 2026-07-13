@@ -10,7 +10,7 @@ interface ToastStackProps {
 
 export function ToastStack({ toasts, onDismiss }: ToastStackProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-4 sm:bottom-6 left-3 sm:left-6 right-3 sm:right-6 z-50 flex flex-col gap-2 sm:gap-3 max-w-sm sm:max-w-sm mx-auto pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
