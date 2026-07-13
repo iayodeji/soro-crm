@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getGeminiClient } from "@/features/leads/server/geminiClient";
 import { callGroq } from "@/features/leads/server/groqClient";

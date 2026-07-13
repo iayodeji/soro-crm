@@ -121,16 +121,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
 
               {/* See All Button at bottom of column */}
-              <div className="px-3 pb-3 pt-1 text-center">
+              <div className="px-2 sm:px-3 pb-2 sm:pb-3 pt-1 text-center">
                 <button
                   onClick={() => {
                     setSearchQuery("");
                     setSelectedPhaseView(column.id);
                   }}
-                  className="w-full py-2 px-3 border border-[#1F1612]/10 hover:border-[#B74A26]/30 bg-white/60 hover:bg-white text-[11px] font-mono font-bold uppercase tracking-wider text-[#1F1612]/70 hover:text-[#B74A26] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                  className="w-full py-2 px-2 sm:px-3 border border-[#1F1612]/10 hover:border-[#B74A26]/30 bg-white/60 hover:bg-white text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-[#1F1612]/70 hover:text-[#B74A26] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
                 >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>See all "{column.title}" ({columnLeads.length})</span>
+                  <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="truncate">See all ({columnLeads.length})</span>
                 </button>
               </div>
             </div>
@@ -141,28 +141,28 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       {/* Polish Overlay / Slide-out Modal for browsing all items of a phase */}
       <AnimatePresence>
         {selectedPhaseView && activeCol && (
-          <div className="fixed inset-0 bg-[#1F1612]/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#1F1612]/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ type: "spring", duration: 0.35 }}
-              className="bg-[#FDFBF2] rounded-3xl border border-[#1F1612]/15 w-full max-w-2xl h-[85vh] flex flex-col shadow-2xl overflow-hidden text-[#1F1612]"
+              className="bg-[#FDFBF2] rounded-2xl sm:rounded-3xl border border-[#1F1612]/15 w-full max-w-2xl h-[85vh] sm:h-[85vh] flex flex-col shadow-2xl overflow-hidden text-[#1F1612]"
             >
               {/* Modal Header */}
-              <div className="px-6 py-5 border-b border-[#1F1612]/10 bg-white/80 backdrop-blur-md flex items-center justify-between">
+              <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-[#1F1612]/10 bg-white/80 backdrop-blur-md flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <span
                       className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: activeCol.color }}
                     />
-                    <h2 className="font-serif font-bold italic text-xl">
+                    <h2 className="font-serif font-bold italic text-lg sm:text-xl">
                       {activeCol.title} Workspace Directory
                     </h2>
                   </div>
                   <p className="text-[10px] font-mono text-[#1F1612]/50 uppercase tracking-wider mt-0.5">
-                    Viewing all {activePhaseLeads.length} entries registered in this stage
+                    Viewing all {activePhaseLeads.length} entries
                   </p>
                 </div>
                 <button
@@ -174,7 +174,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
 
               {/* Search & Statistics Bar */}
-              <div className="p-4 bg-white/40 border-b border-[#1F1612]/5 flex flex-col sm:flex-row gap-3 items-center justify-between">
+              <div className="p-3 sm:p-4 bg-white/40 border-b border-[#1F1612]/5 flex flex-col sm:flex-row gap-2 sm:gap-3 items-center justify-between">
                 <div className="relative w-full sm:max-w-xs">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#1F1612]/30" />
                   <input
@@ -200,9 +200,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
 
               {/* Scrollable list content */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
                 {filteredModalLeads.length === 0 ? (
-                  <div className="h-60 border border-dashed border-[#1F1612]/10 rounded-2xl flex flex-col items-center justify-center text-xs text-[#1F1612]/40 italic gap-2 bg-white/20">
+                  <div className="h-40 sm:h-60 border border-dashed border-[#1F1612]/10 rounded-2xl flex flex-col items-center justify-center text-xs text-[#1F1612]/40 italic gap-2 bg-white/20">
                     <span>No discovery matching your queries.</span>
                     {!isViewer && (
                       <button
@@ -214,7 +214,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     {filteredModalLeads.map((lead) => (
                       <div
                         key={lead.id}
@@ -222,7 +222,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           setSelectedPhaseView(null);
                           onSelectLead(lead);
                         }}
-                        className="bg-white border border-[#1F1612]/10 rounded-2xl p-4 shadow-2xs hover:shadow-md hover:border-[#B74A26]/30 transition-all cursor-pointer flex flex-col justify-between group h-40"
+                        className="bg-white border border-[#1F1612]/10 rounded-2xl p-3 sm:p-4 shadow-2xs hover:shadow-md hover:border-[#B74A26]/30 transition-all cursor-pointer flex flex-col justify-between group h-32 sm:h-40"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">

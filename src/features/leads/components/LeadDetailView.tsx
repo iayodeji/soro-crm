@@ -326,40 +326,41 @@ if (accessToken) {
   return (
     <div className="min-h-screen bg-[#FDFBF2] text-[#1F1612] flex flex-col font-sans select-none antialiased">
       {/* Top Details Nav Bar */}
-      <header className="border-b border-[#1F1612]/10 bg-white/85 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <header className="border-b border-[#1F1612]/10 bg-white/85 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={onClose}
-              className="p-2 rounded-xl border border-[#1F1612]/10 bg-white hover:bg-[#1F1612]/5 text-[#1F1612]/70 hover:text-[#B74A26] transition-all cursor-pointer flex items-center justify-center gap-1 text-xs font-mono font-bold uppercase tracking-wider"
+              className="p-1.5 sm:p-2 rounded-xl border border-[#1F1612]/10 bg-white hover:bg-[#1F1612]/5 text-[#1F1612]/70 hover:text-[#B74A26] transition-all cursor-pointer flex items-center justify-center gap-1 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Board</span>
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Back to Board</span>
             </button>
-            <div className="h-6 w-px bg-[#1F1612]/10 hidden sm:block" />
+            <div className="h-5 sm:h-6 w-px bg-[#1F1612]/10 hidden sm:block" />
             <div className="hidden sm:block">
               <span className="text-[10px] uppercase font-bold tracking-widest text-[#B74A26] block">
                 Pipeline Lead File {isViewer && "• Read-Only View"}
               </span>
-              <h2 className="font-serif font-bold text-lg italic text-[#1F1612] truncate max-w-[280px]">
+              <h2 className="font-serif font-bold text-base sm:text-lg italic text-[#1F1612] truncate max-w-[200px] sm:max-w-[280px]">
                 {lead.name}
               </h2>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {!isViewer ? (
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-4 py-2 bg-[#B74A26] hover:bg-[#B74A26]/90 disabled:opacity-50 text-xs font-bold font-mono uppercase tracking-wider text-white rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#B74A26] hover:bg-[#B74A26]/90 disabled:opacity-50 text-[10px] sm:text-xs font-bold font-mono uppercase tracking-wider text-white rounded-xl shadow-xs transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>{isSaving ? "Saving..." : "Save Updates"}</span>
+                <Save className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save Updates"}</span>
+                <span className="sm:hidden">{isSaving ? "..." : "Save"}</span>
               </button>
             ) : (
-              <div className="px-3.5 py-1.5 bg-[#1F1612]/5 text-[#1F1612]/60 text-[10px] font-mono font-bold uppercase rounded-lg border border-[#1F1612]/10">
-                🔒 Read-Only (Viewer)
+              <div className="px-2.5 sm:px-3.5 py-1.5 bg-[#1F1612]/5 text-[#1F1612]/60 text-[9px] sm:text-[10px] font-mono font-bold uppercase rounded-lg border border-[#1F1612]/10">
+                🔒 Viewer
               </div>
             )}
           </div>
@@ -445,13 +446,13 @@ if (accessToken) {
 
             {/* Pipeline Phase */}
             <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/50 block">Discovery Pipeline Stage</label>
-              <div className="grid grid-cols-3 gap-2">
+              <label className="text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/50 block">Pipeline Stage</label>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => !isViewer && setPhase("lead_found")}
                   disabled={isViewer}
-                  className={`py-2 text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
                     phase === "lead_found"
                       ? "bg-[#B74A26]/10 border-[#B74A26]/40 text-[#B74A26]"
                       : "bg-white border-[#1F1612]/10 text-[#1F1612]/60 hover:bg-[#1F1612]/5"
@@ -463,7 +464,7 @@ if (accessToken) {
                   type="button"
                   onClick={() => !isViewer && setPhase("prospect_engaged")}
                   disabled={isViewer}
-                  className={`py-2 text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
                     phase === "prospect_engaged"
                       ? "bg-[#CFA331]/10 border-[#CFA331]/40 text-[#CFA331]"
                       : "bg-white border-[#1F1612]/10 text-[#1F1612]/60 hover:bg-[#1F1612]/5"
@@ -475,7 +476,7 @@ if (accessToken) {
                   type="button"
                   onClick={() => !isViewer && setPhase("client_closed")}
                   disabled={isViewer}
-                  className={`py-2 text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`py-1.5 sm:py-2 text-[9px] sm:text-[10px] font-mono font-bold uppercase rounded-xl border text-center transition-all cursor-pointer ${
                     phase === "client_closed"
                       ? "bg-[#7A8452]/10 border-[#7A8452]/40 text-[#7A8452]"
                       : "bg-white border-[#1F1612]/10 text-[#1F1612]/60 hover:bg-[#1F1612]/5"

@@ -40,12 +40,12 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="border-b border-[#1F1612]/10 bg-[#FDFBF2]/80 backdrop-blur-md sticky top-0 z-40 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
         
         {/* Logo and Platform Tag */}
-        <div className="flex items-center space-x-3">
-          <h1 className="text-3xl font-serif font-bold italic tracking-tight text-[#1F1612] select-none flex items-center gap-1.5">
-            Soro <span className="text-[#B74A26] font-sans text-[10px] font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-[#B74A26]/10 uppercase">CRM</span>
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold italic tracking-tight text-[#1F1612] select-none flex items-center gap-1">
+            Soro <span className="text-[#B74A26] font-sans text-[9px] sm:text-[10px] font-bold tracking-widest px-2 py-0.5 rounded-full bg-[#B74A26]/10 uppercase">CRM</span>
           </h1>
 
           {/* Workspace switcher dropdown */}
@@ -67,7 +67,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             <AnimatePresence>
               {workspaceMenuOpen && (
                 <>
-                  {/* Click-away backdrop */}
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setWorkspaceMenuOpen(false)}
@@ -140,11 +139,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Dynamic Collaborative Avatar Stack and Controls */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           
           {/* Active Team Pipeline Avatar Stack */}
-          <div className="flex items-center space-x-2">
-            <span className="hidden sm:inline-block text-[11px] font-mono tracking-wider text-[#1F1612]/50 uppercase">
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="hidden md:inline-block text-[11px] font-mono tracking-wider text-[#1F1612]/50 uppercase">
               Pipeline Team:
             </span>
             <div className="flex items-center gap-2">
@@ -157,7 +156,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <div key={member.id} className="relative group shrink-0">
                       <div className="relative">
                         <img
-                          className={`inline-block h-8 w-8 rounded-full ring-2 object-cover transition-all duration-300 group-hover:scale-110 ${
+                          className={`inline-block h-7 w-7 sm:h-8 sm:w-8 rounded-full ring-2 object-cover transition-all duration-300 group-hover:scale-110 ${
                             isEditing 
                               ? "ring-[#B74A26] border-2 border-[#B74A26]" 
                               : isViewing 
@@ -168,7 +167,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                           alt={member.name}
                           title={`${member.name} (${member.status} - ${member.activity || "viewing"})`}
                         />
-                        {/* Real-time sync editing pencil badge */}
                         {isEditing && (
                           <span className="absolute -top-1 -right-1 bg-[#B74A26] text-white rounded-full p-0.5 ring-1 ring-[#FDFBF2] shadow-sm transform scale-90" title="Editing Leads Board">
                             <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
@@ -176,7 +174,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                             </svg>
                           </span>
                         )}
-                        {/* Active/Away dot */}
                         <span className={`absolute bottom-0 right-0 block h-2 w-2 rounded-full ring-1 ring-[#FDFBF2] ${
                           member.status === "active" 
                             ? "bg-[#7A8452]" 
@@ -185,7 +182,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                             : "bg-[#1F1612]/30"
                         }`} />
                       </div>
-                      {/* Micro Tooltip */}
                       <div className="absolute top-10 left-1/2 -translate-x-1/2 scale-0 group-hover:scale-100 transition-all duration-200 bg-[#1F1612] text-[#FDFBF2] text-[10px] py-1.5 px-2.5 rounded-lg whitespace-nowrap shadow-md font-mono z-50 flex flex-col items-center">
                         <span className="font-bold">{member.name}</span>
                         <span className="text-[8px] opacity-75 uppercase mt-0.5">{member.role || "member"} • {member.activity || "viewing"}</span>
@@ -195,7 +191,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 })}
               </div>
 
-              {/* Configure Team / Invite action button */}
               <button
                 onClick={onManageTeam}
                 className="p-1.5 rounded-xl border border-[#1F1612]/10 hover:bg-[#1F1612]/5 hover:text-[#B74A26] text-[#1F1612]/70 transition-colors shrink-0 cursor-pointer flex items-center justify-center"
@@ -207,8 +202,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
 
           {/* Sync & Network Status Badge */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 bg-[#1F1612]/5 px-2.5 py-1 rounded-full border border-[#1F1612]/10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 bg-[#1F1612]/5 px-2 py-1 rounded-full border border-[#1F1612]/10">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
                   networkStatus === "online"
@@ -218,7 +213,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     : "bg-[#B74A26] animate-ping"
                 }`}
               />
-              <span className="text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
+              <span className="hidden sm:inline text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
                 {networkStatus === "online"
                   ? "Connected"
                   : networkStatus === "checking"
@@ -227,13 +222,13 @@ export const TopBar: React.FC<TopBarProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center space-x-1.5 bg-[#1F1612]/5 px-2.5 py-1 rounded-full border border-[#1F1612]/10">
+            <div className="flex items-center gap-1.5 bg-[#1F1612]/5 px-2 py-1 rounded-full border border-[#1F1612]/10">
               {isFirebaseSynced ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#7A8452]" />
               ) : (
                 <AlertCircle className="w-3.5 h-3.5 text-[#CFA331]" />
               )}
-              <span className="text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
+              <span className="hidden sm:inline text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
                 {isFirebaseSynced ? "Cloud Sync" : "Local Demo"}
               </span>
             </div>
@@ -247,7 +242,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
-                className="flex items-center space-x-3 border-l border-[#1F1612]/10 pl-4"
+                className="flex items-center gap-2 sm:gap-3 border-l border-[#1F1612]/10 pl-2 sm:pl-4"
               >
                 <div className="hidden lg:block text-right">
                   <p className="text-xs font-semibold text-[#1F1612] truncate max-w-[120px]">
@@ -274,10 +269,10 @@ export const TopBar: React.FC<TopBarProps> = ({
                 exit={{ opacity: 0, x: 10 }}
                 onClick={onSignIn}
                 id="btn-signin"
-                className="gsi-material-button flex items-center space-x-2 bg-[#1F1612] text-[#FDFBF2] px-3.5 py-1.5 rounded-full text-xs font-semibold hover:bg-[#B74A26] hover:text-[#FDFBF2] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                className="gsi-material-button flex items-center gap-1.5 sm:gap-2 bg-[#1F1612] text-[#FDFBF2] px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-[#B74A26] hover:text-[#FDFBF2] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Google Sign-In</span>
+                <span className="hidden sm:inline">Google Sign-In</span>
               </motion.button>
             )}
           </AnimatePresence>

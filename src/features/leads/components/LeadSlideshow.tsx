@@ -54,19 +54,18 @@ export const LeadSlideshow: React.FC<LeadSlideshowProps> = ({
   const hasPrev = currentIndex > 0;
 
   return (
-    <div className="relative w-full px-1 py-4">
+    <div className="relative w-full px-1 py-3 sm:py-4">
       {/* 3D Stack / Cascade Background Cards to visually imply overlapping cards */}
       <div className="absolute inset-0 pointer-events-none">
         {previewItems.map((_, idx) => {
           if (idx === currentIndex) return null;
-          // Calculate visual offset for stacked cascade look
           const offset = idx - currentIndex;
-          if (Math.abs(offset) > 1) return null; // only render immediate neighbors behind
+          if (Math.abs(offset) > 1) return null;
 
           return (
             <div
               key={idx}
-              className="absolute inset-x-3 bottom-2 h-[155px] bg-white/20 border border-[#1F1612]/5 rounded-xl shadow-xs transition-all duration-300"
+              className="absolute inset-x-2 sm:inset-x-3 bottom-2 h-[130px] sm:h-[155px] bg-white/20 border border-[#1F1612]/5 rounded-xl shadow-xs transition-all duration-300"
               style={{
                 transform: `translateY(${offset * 4}px) scale(${1 - Math.abs(offset) * 0.03})`,
                 zIndex: 10 - Math.abs(offset),
@@ -86,7 +85,7 @@ export const LeadSlideshow: React.FC<LeadSlideshowProps> = ({
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.2 }}
           onClick={() => onSelectLead(activeLead)}
-          className="relative z-10 bg-white border border-[#1F1612]/10 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-[#B74A26]/30 transition-all cursor-pointer h-[155px] flex flex-col justify-between"
+          className="relative z-10 bg-white border border-[#1F1612]/10 rounded-2xl p-3 sm:p-4 shadow-sm hover:shadow-md hover:border-[#B74A26]/30 transition-all cursor-pointer h-[130px] sm:h-[155px] flex flex-col justify-between"
         >
           {/* Top Indicators */}
           <div className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-60">

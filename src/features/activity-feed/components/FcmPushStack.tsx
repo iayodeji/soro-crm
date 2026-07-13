@@ -12,7 +12,7 @@ interface FcmPushStackProps {
 
 export function FcmPushStack({ notifications, onDismiss, soundEnabled }: FcmPushStackProps) {
   return (
-    <div className="fixed top-24 right-6 z-50 flex flex-col gap-4 max-w-sm w-full pointer-events-none">
+    <div className="fixed top-20 sm:top-24 left-3 sm:left-6 right-3 sm:right-6 z-50 flex flex-col gap-3 sm:gap-4 max-w-sm sm:max-w-sm mx-auto pointer-events-none">
       <AnimatePresence>
         {notifications.map((notif) => (
           <motion.div
@@ -20,7 +20,7 @@ export function FcmPushStack({ notifications, onDismiss, soundEnabled }: FcmPush
             initial={{ opacity: 0, x: 100, scale: 0.9, y: -20 }}
             animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
             exit={{ opacity: 0, x: 100, scale: 0.95 }}
-            className="pointer-events-auto bg-[#1F1612]/95 text-white p-4 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-2 backdrop-blur-lg w-80 ring-4 ring-[#1F1612]/20"
+            className="pointer-events-auto bg-[#1F1612]/95 text-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-1.5 sm:gap-2 backdrop-blur-lg w-full ring-2 sm:ring-4 ring-[#1F1612]/20"
           >
             <div className="flex items-center justify-between border-b border-white/10 pb-2 text-[9px] font-mono text-white/50 tracking-wider">
               <div className="flex items-center gap-1.5">
