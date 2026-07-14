@@ -62,7 +62,12 @@ service cloud.firestore {
           membershipDocId.split('_')[0] == request.auth.uid ||
           isTeamMember(resource.data.teamId)
         );
-      // A user can create their own membership (team creation, or accepting an invite)
+      // A user can create their own membership (team creation, or accepting an invite).
+      // NOTE: this intentionally requires `role` + either isTeamOwner or a valid
+      // pending invitation on every create — do not loosen this to accommodate a
+      // presence-only upsert (see updatePresence in teamService.ts), since that
+      // would let any signed-in user self-grant isTeamMember() on an arbitrary
+      // team with no invitation at all.
       allow create: if isSignedIn() &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.id == request.auth.uid &&
@@ -92,20 +97,27 @@ service cloud.firestore {
     match /invitations/{token} {
       allow get: if isSignedIn();
       allow create: if isTeamAdminOrOwner(request.resource.data.teamId);
-      // FIX: open/link-based invites (empty or null email) can now also be marked
-      // accepted/expired. Previously this required an exact email match, but
-      // hasPendingInvitation() explicitly permits empty/null email to authorize
-      // the join itself — so an open invite could let someone join and then fail
-      // permission on the immediately-following status update in the same
-      // transaction. Kept as a fallback; if every invite in your app always has
-      // a concrete email attached, this branch simply never triggers.
+      // FIX (email fallback): open/link-based invites (empty or null email) can
+      // still be marked accepted, matching hasPendingInvitation()'s own allowance
+      // for open invites during the join itself.
+      // FIX (expiry, this update): marking an invite 'expired' is not
+      // security-sensitive — it doesn't grant anyone access, it just records
+      // that the window passed — so it no longer requires an email match.
+      // Previously, expiring a *targeted* invite (one with a concrete email)
+      // could permission-deny if the caller wasn't that exact recipient, e.g.
+      // the transaction in joinTeamViaInvitation expiring a stale invite that
+      // was addressed to someone else. Only the 'accepted' transition still
+      // checks identity, since that one does grant access.
       allow update: if isSignedIn() &&
-        (resource.data.email == request.auth.token.email ||
-         resource.data.email == null ||
-         resource.data.email == '') &&
         resource.data.status == 'pending' &&
-        request.resource.data.status in ['accepted', 'expired'] &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        (
+          request.resource.data.status == 'expired' ||
+          (request.resource.data.status == 'accepted' &&
+            (resource.data.email == request.auth.token.email ||
+             resource.data.email == null ||
+             resource.data.email == ''))
+        );
     }
 
     // /sessions/{sessionId}

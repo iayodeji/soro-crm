@@ -68,6 +68,10 @@ export const createTeam = async (
     lastActiveAt: new Date().toISOString()
   };
 
+  // Team doc must be written first: the membership create rule's
+  // isTeamOwner(teamId) branch does get(teams/{teamId}).data.ownerId — that
+  // read has to see a committed team doc, so these two writes stay sequential
+  // (not Promise.all) and in this order.
   await setDoc(doc(db, "teams", teamId), newTeam);
   await setDoc(doc(db, "team_memberships", `${ownerId}_${teamId}`), {
     ...initialMember,
@@ -160,6 +164,19 @@ export const createInvitation = async (
 
 /**
  * Join a team using an active invitation token.
+ *
+ * IMPORTANT: this only ever reads `invitations/{token}` and
+ * `team_memberships/{uid}_{teamId}` inside the transaction, and only writes
+ * those same two docs. It deliberately does NOT read `teams/{teamId}` here.
+ *
+ * The `teams` read rule is `allow read: if isTeamMember(teamId)`, which
+ * depends on the membership doc existing. For a first-time joiner that doc
+ * doesn't exist yet at transaction-read time (Firestore transaction reads
+ * are evaluated against committed state, not the transaction's own pending
+ * writes), so a `transaction.get(teams/{teamId})` here would be rejected
+ * with permission-denied even *after* fixing the "reads before writes"
+ * ordering. Fetching the team doc after the transaction has committed —
+ * once the membership genuinely exists — lets that rule evaluate normally.
  */
 export const joinTeamViaInvitation = async (
   token: string,
@@ -167,28 +184,34 @@ export const joinTeamViaInvitation = async (
   userDetails: { name: string; email: string; avatarUrl: string }
 ): Promise<Team | null> => {
   const db = requireDb();
+  let joinedTeamId: string | null = null;
 
   try {
-    return await runTransaction(db, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
       const inviteDocRef = doc(db, "invitations", token);
       const inviteSnap = await transaction.get(inviteDocRef);
 
-      if (!inviteSnap.exists()) return null;
+      if (!inviteSnap.exists()) return;
       const invite = inviteSnap.data() as TeamInvitation;
 
-      if (invite.status !== "pending") return null;
+      if (invite.status !== "pending") return;
       if (new Date(invite.expiresAt).getTime() < Date.now()) {
         transaction.update(inviteDocRef, { status: "expired" });
-        return null;
+        return;
       }
 
       const membershipId = `${userId}_${invite.teamId}`;
       const membershipRef = doc(db, "team_memberships", membershipId);
       const membershipSnap = await transaction.get(membershipRef);
 
+      // Both reads (invite, membership) are done. Everything below this line
+      // is either a write, or a plain in-memory branch — no more transaction
+      // reads, so ordering can never break again here.
+      joinedTeamId = invite.teamId;
+
       if (membershipSnap.exists()) {
-        const teamSnap = await transaction.get(doc(db, "teams", invite.teamId));
-        return teamSnap.exists() ? (teamSnap.data() as Team) : null;
+        // Already a member — nothing to write.
+        return;
       }
 
       const newMembership = {
@@ -207,10 +230,14 @@ export const joinTeamViaInvitation = async (
 
       transaction.set(membershipRef, newMembership);
       transaction.update(inviteDocRef, { status: "accepted" });
-
-      const teamSnap = await transaction.get(doc(db, "teams", invite.teamId));
-      return teamSnap.exists() ? (teamSnap.data() as Team) : null;
     });
+
+    if (!joinedTeamId) return null;
+
+    // Read outside the transaction, after the membership write is committed,
+    // so isTeamMember(teamId) in the `teams` read rule evaluates truthfully.
+    const teamSnap = await getDoc(doc(db, "teams", joinedTeamId));
+    return teamSnap.exists() ? (teamSnap.data() as Team) : null;
   } catch (e) {
     console.error("Invite processing error", e);
     throw e;
