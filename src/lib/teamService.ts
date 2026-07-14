@@ -144,7 +144,12 @@ export const createInvitation = async (
   const token = generateToken();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24-hour expiry
-  const normalizedEmail = (email ?? "").trim();
+  // Lowercased (not just trimmed): the invitations security rules compare this
+  // against request.auth.token.email, which is typically lowercase-normalized
+  // by the auth provider. A mixed-case email here (e.g. copy-pasted from
+  // somewhere) would silently fail that comparison at accept-time with an
+  // opaque "permission-denied", not a validation error.
+  const normalizedEmail = (email ?? "").trim().toLowerCase();
 
   const newInvitation: TeamInvitation = {
     id: inviteId,
@@ -307,8 +312,20 @@ export const updatePresence = async (
 ): Promise<void> => {
   const db = requireDb();
   const membershipDocRef = doc(db, "team_memberships", `${userId}_${teamId}`);
-  // merge: true so this behaves as an upsert — avoids failing on a first-write
-  // race where the membership doc hasn't been created yet.
+
+  // Firestore treats a setDoc with merge:true as a `create` (not `update`) when
+  // no document exists yet. The `team_memberships` create rule requires `role`
+  // + either isTeamOwner or a valid pending invitation — fields this presence
+  // payload deliberately doesn't carry — so that create would be rejected by
+  // the rules, not silently upserted as the `merge: true` below might suggest.
+  // Presence for a membership that doesn't exist yet isn't meaningful anyway
+  // (createTeam/joinTeamViaInvitation always create the doc first), so this
+  // is a no-op rather than a real race condition — but we check explicitly
+  // instead of relying on that call-order assumption, and to avoid ever
+  // sending a create-shaped write that the rules would bounce.
+  const existing = await getDoc(membershipDocRef);
+  if (!existing.exists()) return;
+
   await setDoc(
     membershipDocRef,
     { status, activity, lastActiveAt: new Date().toISOString() },

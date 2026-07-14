@@ -26,14 +26,24 @@ service cloud.firestore {
 
     function hasPendingInvitation(token, teamId) {
       let invitePath = /databases/$(database)/documents/invitations/$(token);
+      // .get('email', null) instead of .email: a token without an email claim
+      // (e.g. some non-Google/non-email-scoped auth flows) would otherwise
+      // throw a rule-evaluation error on the bare property access, surfacing
+      // as an opaque permission-denied rather than cleanly falling through to
+      // "no match".
+      let callerEmail = request.auth.token.get('email', null);
+      let inviteEmail = get(invitePath).data.email;
       return token is string &&
         exists(invitePath) &&
         get(invitePath).data.status == 'pending' &&
         get(invitePath).data.teamId == teamId &&
         request.time < timestamp(get(invitePath).data.expiresAt) &&
-        (get(invitePath).data.email == null ||
-         get(invitePath).data.email == '' ||
-         get(invitePath).data.email == request.auth.token.email);
+        (inviteEmail == null ||
+         inviteEmail == '' ||
+         // .lower() on both sides: auth-provider emails are typically
+         // lowercase-normalized already, but invite emails are user-typed
+         // and shouldn't silently fail a same-address match on case alone.
+         (callerEmail != null && inviteEmail.lower() == callerEmail.lower()));
     }
 
     // /teams/{teamId}
@@ -108,15 +118,18 @@ service cloud.firestore {
       // the transaction in joinTeamViaInvitation expiring a stale invite that
       // was addressed to someone else. Only the 'accepted' transition still
       // checks identity, since that one does grant access.
+      // Email comparison is case-insensitive (.lower() both sides) and
+      // null-safe against a missing token email claim — see hasPendingInvitation().
       allow update: if isSignedIn() &&
         resource.data.status == 'pending' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
         (
           request.resource.data.status == 'expired' ||
           (request.resource.data.status == 'accepted' &&
-            (resource.data.email == request.auth.token.email ||
-             resource.data.email == null ||
-             resource.data.email == ''))
+            (resource.data.email == null ||
+             resource.data.email == '' ||
+             (request.auth.token.get('email', null) != null &&
+              resource.data.email.lower() == request.auth.token.get('email', null).lower())))
         );
     }
 
