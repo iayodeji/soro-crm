@@ -24,10 +24,9 @@ const PUSH_COPY: Partial<Record<ActivityEventType, (leadName: string) => { title
   }),
 };
 
-// Legacy bridge for components not yet migrated to structured logActivity
-// (LeadDetailView / TeamManagementModal currently call onLogActivity(action, details, type)).
-// Mirrors the ORIGINAL .includes() matching so those call sites keep working unchanged
-// until you paste those files and I migrate their call sites too.
+// Legacy bridge for components that call onLogActivity(action, details, type)
+// (e.g. LeadDetailView). Mirrors the original .includes() matching so those
+// call sites keep working unchanged.
 function inferLegacyEventType(action: string): ActivityEventType {
   if (action.includes("Tasks Synced") || action.includes("Google Tasks")) return "tasks_synced";
   if (action.includes("Sheets Sync") || action.includes("Exported")) return "sheets_synced";

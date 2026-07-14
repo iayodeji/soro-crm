@@ -10,8 +10,7 @@ import {
 } from "@/features/agent/server/agentSchema";
 import type { AgentLeadContext, AgentPlan } from "@/features/agent/types";
 import { getOrCreateSession, addMessageToSession, getTeamKnowledge } from "@/features/agent/server/sessionService";
-import { getAuthUser } from "@/lib/serverAuth";
-import { isUserTeamMember } from "@/lib/teamAccess";
+import { WORKSPACE_ID } from "@/lib/workspace";
 
 function extractJson(text: string): AgentPlan {
   try {
@@ -40,31 +39,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A prompt and lead context are required." }, { status: 400 });
   }
 
-  const authUser = await getAuthUser(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
   const leads = body.leads as AgentLeadContext[];
-  const teamId = body.teamId as string | undefined;
-  const userId = authUser.uid;
   const threadId = body.threadId as string | undefined;
-
-  if (!teamId) {
-    return NextResponse.json({ error: "teamId is required for session-aware agent." }, { status: 400 });
-  }
-
-  const isMember = await isUserTeamMember(teamId, userId);
-  if (!isMember) {
-    return NextResponse.json({ error: "You do not have access to this team." }, { status: 403 });
-  }
 
   let session;
   let teamKnowledge;
   try {
-    const sessionResult = await getOrCreateSession({ teamId, userId, threadId });
+    const sessionResult = await getOrCreateSession({ teamId: WORKSPACE_ID, userId: WORKSPACE_ID, threadId });
     session = sessionResult.session;
-    teamKnowledge = await getTeamKnowledge(teamId);
+    teamKnowledge = await getTeamKnowledge(WORKSPACE_ID);
   } catch (sessionError: any) {
     console.error("Session setup failed:", sessionError?.message || sessionError);
     return NextResponse.json({ error: "Failed to initialize conversation session." }, { status: 500 });

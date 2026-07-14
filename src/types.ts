@@ -28,47 +28,6 @@ export interface ActivityLog {
   type: "success" | "info" | "warning";
 }
 
-export interface TeamMember {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  status: "active" | "away" | "offline";
-  activity?: "viewing" | "editing" | "idle";
-  role?: "owner" | "admin" | "editor" | "viewer" | "member";
-  email?: string;
-  lastActiveAt?: string;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  ownerId: string;
-  createdAt: string;
-}
-
-export interface TeamInvitation {
-  id: string;
-  email?: string;
-  teamId: string;
-  teamName: string;
-  role: "admin" | "editor" | "viewer" | "member";
-  token: string;
-  status: "pending" | "accepted" | "expired";
-  createdAt: string;
-  expiresAt: string;
-}
-
-export interface GeminiParseResponse {
-  parsed_lead: {
-    name: string | null;
-    company_name: string | null;
-    email: string | null;
-    phone: string | null;
-  };
-  market_fit_thesis: string;
-  mom_test_questions: string[];
-}
-
 export interface SessionMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -95,4 +54,15 @@ export interface TeamKnowledge {
   pastDecisions?: Array<{ topic: string; decision: string; decidedAt: string; decidedBy: string }>;
   customInstructions?: string;
   updatedAt: string;
+}
+
+export interface GeminiParseResponse {
+  parsed_lead: {
+    name: string | null;
+    company_name: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  market_fit_thesis: string;
+  mom_test_questions: string[];
 }

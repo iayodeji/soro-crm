@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const {
     leads, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv,
     fcmEnabled, toggleFcm, soundEnabled, toggleSound, dispatchTestPush,
-    activityLogs, isViewer, accessToken, logActivity, user, currentTeam,
+    activityLogs, logActivity,
   } = useWorkspace();
 
   const [leadIdToConfirmDelete, setLeadIdToConfirmDelete] = useState<string | null>(null);
@@ -32,11 +32,7 @@ export default function DashboardPage() {
         onUpdateLead={updateLead}
         onParse={async (text, options) => { await parseLead(text, options); }}
         isParsing={isParsing}
-        accessToken={accessToken}
         logActivity={logActivity}
-        isViewer={!!isViewer}
-        teamId={currentTeam?.id || ""}
-        userId={user?.uid || ""}
       />
 
       <KanbanBoard
@@ -45,7 +41,6 @@ export default function DashboardPage() {
         onDeleteLead={async (id: string) => { setLeadIdToConfirmDelete(id); }}
         onSelectLead={(lead: { id: string }) => router.push(`/leads/${lead.id}`)}
         onAddNewLead={addNewLead}
-        isViewer={isViewer}
       />
 
       <NotificationEngineControls

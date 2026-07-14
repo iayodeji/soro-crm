@@ -6,13 +6,12 @@ import { LeadDetailView } from "@/features/leads/components/LeadDetailView";
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { leads, leadsLoaded, accessToken, user, updateLead, legacyLogActivity, isViewer } = useWorkspace();
+  const { leads, leadsLoaded, updateLead, legacyLogActivity } = useWorkspace();
   const { id } = use(params);
   const lead = leads.find((l) => l.id === id);
 
-  // Leads load async on team switch/refresh. Only bounce back once we're
-  // confident the team's leads have loaded and this id genuinely doesn't exist —
-  // otherwise a hard refresh on this route would incorrectly redirect away.
+  // Leads load async on refresh. Only bounce back once we're confident the
+  // leads have loaded and this id genuinely doesn't exist.
   useEffect(() => {
     if (leadsLoaded && !lead) router.replace("/");
   }, [leadsLoaded, lead, router]);
@@ -24,10 +23,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
       lead={lead}
       onClose={() => router.push("/")}
       onUpdateLead={updateLead}
-      accessToken={accessToken}
-      user={user}
       onLogActivity={legacyLogActivity}
-      isViewer={isViewer}
     />
   );
-} 
+}

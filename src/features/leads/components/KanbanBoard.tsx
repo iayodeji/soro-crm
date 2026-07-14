@@ -11,7 +11,6 @@ interface KanbanBoardProps {
   onSelectLead: (lead: Lead) => void;
   selectedLeadId?: string;
   onAddNewLead: (phase: Phase) => void;
-  isViewer?: boolean;
 }
 
 /**
@@ -24,7 +23,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onDeleteLead,
   onSelectLead,
   onAddNewLead,
-  isViewer = false,
 }) => {
   const [selectedPhaseView, setSelectedPhaseView] = useState<Phase | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,15 +98,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 </div>
 
                 {/* Quick Add Button */}
-                {!isViewer && (
-                  <button
-                    onClick={() => onAddNewLead(column.id)}
-                    className="p-1 rounded-lg border border-[#1F1612]/10 bg-white hover:bg-[#B74A26] hover:text-[#FDFBF2] hover:border-[#B74A26] text-[#1F1612]/70 transition-all cursor-pointer"
-                    title={`Add new lead to ${column.title}`}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <button
+                  onClick={() => onAddNewLead(column.id)}
+                  className="p-1 rounded-lg border border-[#1F1612]/10 bg-white hover:bg-[#B74A26] hover:text-[#FDFBF2] hover:border-[#B74A26] text-[#1F1612]/70 transition-all cursor-pointer"
+                  title={`Add new lead to ${column.title}`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               {/* Compact Cascade / Slideshow container */}
@@ -204,14 +200,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {filteredModalLeads.length === 0 ? (
                   <div className="h-40 sm:h-60 border border-dashed border-[#1F1612]/10 rounded-2xl flex flex-col items-center justify-center text-xs text-[#1F1612]/40 italic gap-2 bg-white/20">
                     <span>No discovery matching your queries.</span>
-                    {!isViewer && (
-                      <button
-                        onClick={() => onAddNewLead(activeCol.id)}
-                        className="px-3 py-1.5 border border-[#B74A26]/30 text-[#B74A26] font-mono text-[10px] rounded-lg bg-white uppercase font-bold hover:bg-[#B74A26] hover:text-white transition-all cursor-pointer"
-                      >
-                        + Create New Discovery Lead
-                      </button>
-                    )}
+                    <button
+                      onClick={() => onAddNewLead(activeCol.id)}
+                      className="px-3 py-1.5 border border-[#B74A26]/30 text-[#B74A26] font-mono text-[10px] rounded-lg bg-white uppercase font-bold hover:bg-[#B74A26] hover:text-white transition-all cursor-pointer"
+                    >
+                      + Create New Discovery Lead
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -258,20 +252,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-[#1F1612]/5 mt-2">
-                          {!isViewer ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteLead(lead.id);
-                              }}
-                              className="p-1 rounded-lg text-[#1F1612]/30 hover:text-[#B74A26] hover:bg-[#B74A26]/5 transition-all cursor-pointer"
-                              title="Delete Lead"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          ) : (
-                            <div />
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteLead(lead.id);
+                            }}
+                            className="p-1 rounded-lg text-[#1F1612]/30 hover:text-[#B74A26] hover:bg-[#B74A26]/5 transition-all cursor-pointer"
+                            title="Delete Lead"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
 
                           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#B74A26] group-hover:translate-x-1 transition-transform flex items-center gap-1">
                             <span>Open dossier</span>
