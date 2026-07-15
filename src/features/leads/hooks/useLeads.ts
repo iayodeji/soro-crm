@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { downloadLeadsCsv } from "@/utils/csvExport";
-import type { Lead, Phase } from "@/types";
+import type { Lead, CreateLeadInput, Phase } from "@/types";
 import type { LogActivityInput } from "@/types/activity";
 
 export function useLeads(logActivity: (input: LogActivityInput) => void) {
@@ -87,7 +87,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
 
   const addNewLead = useCallback(
     async (phase: Phase) => {
-      const newLead: Lead = {
+      const newLead: CreateLeadInput = {
         id: `lead-${Date.now()}`,
         name: "New Founder Lead",
         company_name: "Acuity Labs",
@@ -104,7 +104,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           "Walk me through what happened when that software was deployed.",
         ],
       };
-      await updateLead(newLead);
+      await updateLead(newLead as Lead);
       logActivity({ eventType: "lead_added", action: "Manual Lead Added", details: `Created empty profile card on column ${phase}.`, level: "info" });
       return newLead;
     },
@@ -132,7 +132,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           throw new Error(errData.error || "Failed to parse text via backend pipeline.");
         }
         const parsedData = await response.json();
-        const newLead: Lead = {
+        const newLead: CreateLeadInput = {
           id: `lead-${Date.now()}`,
           name: parsedData.parsed_lead?.name || "Unidentified Lead",
           company_name: parsedData.parsed_lead?.company_name || "Startup",
@@ -145,7 +145,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           marketFitThesis: parsedData.market_fit_thesis,
           momTestQuestions: parsedData.mom_test_questions,
         };
-        await updateLead(newLead);
+        await updateLead(newLead as Lead);
 
         if (parsedData.isFallback) {
           logActivity({

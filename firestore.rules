@@ -1,11 +1,57 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // All Firestore access (leads, sessions, team_knowledge) is performed
-    // exclusively by the Next.js server via the Firebase Admin SDK, which
-    // bypasses these rules entirely. No client SDK ever talks to Firestore
-    // directly, so we deny all client reads/writes. Authentication is handled
-    // server-side by the app (single default workspace), not by these rules.
+    // User profile docs: writable by the owning user after Firebase custom-token
+    // auth, readable by the user themselves.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Blueprint workspace collections.
+    //
+    // These are written exclusively by the Next.js server via the Firebase
+    // Admin SDK, which bypasses Firestore Rules. The rules below document the
+    // intended access pattern and would take effect only if client SDK access
+    // were ever enabled for these collections.
+
+    // /teams/{teamId} — workspace metadata synced from Clerk organizations.
+    // Any authenticated user may read team metadata; only server-issued
+    // requests (Admin SDK) may write.
+    match /teams/{teamId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // /team_memberships/{membershipId} — membership records enriched from
+    // Clerk and synced to Firestore for the blueprint data model.
+    match /team_memberships/{membershipId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // /leads/{leadId} — leads are scoped to a teamId and are read/written
+    // by the server. Client SDK is not granted direct access.
+    match /leads/{leadId} {
+      allow read, write: if false;
+    }
+
+    // /invitations/{token} — invitation records created by the server.
+    // Tokens may be read publicly for acceptance flows; writes are server-only.
+    match /invitations/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Server-only collections (sessions, team_knowledge, etc.).
+    match /sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /team_knowledge/{teamId} {
+      allow read, write: if false;
+    }
+
+    // Catch-all: deny all other client access.
     match /{document=**} {
       allow read, write: if false;
     }

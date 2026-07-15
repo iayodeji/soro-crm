@@ -13,7 +13,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   // Leads load async on refresh. Only bounce back once we're confident the
   // leads have loaded and this id genuinely doesn't exist.
   useEffect(() => {
-    if (leadsLoaded && !lead) router.replace("/");
+    if (leadsLoaded && !lead) router.replace("/crm");
   }, [leadsLoaded, lead, router]);
 
   if (!lead) return null;
@@ -21,7 +21,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   return (
     <LeadDetailView
       lead={lead}
-      onClose={() => router.push("/")}
+      onClose={() => router.push("/crm")}
       onUpdateLead={updateLead}
       onLogActivity={legacyLogActivity}
     />

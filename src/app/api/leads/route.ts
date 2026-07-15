@@ -1,21 +1,48 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebaseAdmin";
-import { WORKSPACE_ID } from "@/lib/workspace";
-import type { Lead } from "@/types";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getWorkspaceId } from "@/lib/workspace.server";
+import type { Lead, CreateLeadInput } from "@/types";
 
 async function requireLeadBody(body: any) {
-  const lead = body?.lead as Lead | undefined;
+  const lead = body?.lead as CreateLeadInput | undefined;
   if (!lead?.id) {
     return { error: NextResponse.json({ error: "lead.id is required." }, { status: 400 }) };
   }
   return { lead };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const snapshot = await adminDb.collection("leads").where("teamId", "==", WORKSPACE_ID).get();
-    const leads: Lead[] = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as object) } as Lead));
+    const teamId = await getWorkspaceId(req);
+    const { data, error } = await getSupabaseAdmin()
+      .from("leads")
+      .select("*")
+      .eq("teamId", teamId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const leads: Lead[] = (data ?? []).map((row: any) => ({
+      id: row.id,
+      teamId: row.teamId,
+      name: row.name,
+      company_name: row.company_name,
+      email: row.email,
+      phone: row.phone,
+      notes: row.notes,
+      phase: row.phase,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      marketFitThesis: row.marketFitThesis,
+      momTestQuestions: row.momTestQuestions,
+      gmailSent: row.gmailSent,
+      calendarScheduled: row.calendarScheduled,
+      sheetsSynced: row.sheetsSynced,
+      tasksCreated: row.tasksCreated,
+    }));
+
     return NextResponse.json({ leads });
   } catch (error: any) {
     console.error("Failed to fetch leads:", error);
@@ -23,54 +50,101 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const teamId = await getWorkspaceId(request);
   const body = await request.json().catch(() => null);
   const { lead, error } = await requireLeadBody(body);
   if (error) return error;
+
   try {
-    await adminDb.collection("leads").doc(lead!.id).set({
-      ...lead,
-      teamId: WORKSPACE_ID,
-      updatedAt: new Date().toISOString(),
-    });
-    return NextResponse.json({ ok: true });
+    const { data, error: insertError } = await getSupabaseAdmin()
+      .from("leads")
+      .insert({
+        ...lead,
+        teamId,
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+
+    return NextResponse.json({ ok: true, lead: data });
   } catch (error: any) {
     console.error("Failed to save lead:", error);
     return NextResponse.json({ error: "Failed to save lead." }, { status: 500 });
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const teamId = await getWorkspaceId(request);
   const body = await request.json().catch(() => null);
   const { lead, error } = await requireLeadBody(body);
   if (error) return error;
+
   try {
-    const ref = adminDb.collection("leads").doc(lead!.id);
-    const existing = await ref.get();
-    if (!existing.exists || (existing.data() as any).teamId !== WORKSPACE_ID) {
+    const { data: existing } = await getSupabaseAdmin()
+      .from("leads")
+      .select("teamId")
+      .eq("id", lead!.id)
+      .single();
+
+    if (!existing || existing.teamId !== teamId) {
       return NextResponse.json({ error: "Lead not found in this workspace." }, { status: 404 });
     }
-    await ref.set({ ...lead, teamId: WORKSPACE_ID, updatedAt: new Date().toISOString() }, { merge: true });
-    return NextResponse.json({ ok: true });
+
+    const { data, error: updateError } = await getSupabaseAdmin()
+      .from("leads")
+      .update({
+        ...lead,
+        teamId,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq("id", lead!.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    return NextResponse.json({ ok: true, lead: data });
   } catch (error: any) {
     console.error("Failed to update lead:", error);
     return NextResponse.json({ error: "Failed to update lead." }, { status: 500 });
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const teamId = await getWorkspaceId(request);
   const { searchParams } = new URL(request.url);
   const leadId = searchParams.get("leadId");
   if (!leadId) {
     return NextResponse.json({ error: "leadId is required." }, { status: 400 });
   }
+
   try {
-    const ref = adminDb.collection("leads").doc(leadId);
-    const existing = await ref.get();
-    if (!existing.exists || (existing.data() as any).teamId !== WORKSPACE_ID) {
+    const { data: existing } = await getSupabaseAdmin()
+      .from("leads")
+      .select("teamId")
+      .eq("id", leadId)
+      .single();
+
+    if (!existing || existing.teamId !== teamId) {
       return NextResponse.json({ error: "Lead not found in this workspace." }, { status: 404 });
     }
-    await ref.delete();
+
+    const { error } = await getSupabaseAdmin()
+      .from("leads")
+      .delete()
+      .eq("id", leadId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("Failed to delete lead:", error);

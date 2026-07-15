@@ -1,6 +1,10 @@
 import React from "react";
 import { Sparkles, Radio, CheckCircle2, AlertCircle } from "lucide-react";
+import { AuthControls } from "@/components/auth/AuthControls";
+import { OrganizationSwitcher } from "@/components/organizations/OrganizationSwitcher";
 import type { NetworkStatus } from "@/hooks/useNetworkStatus";
+import { useUser } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
 
 interface TopBarProps {
   networkStatus: NetworkStatus;
@@ -49,6 +53,16 @@ export const TopBar: React.FC<TopBarProps> = ({ networkStatus }) => {
             <span className="hidden sm:inline text-[11px] font-mono font-semibold tracking-wider text-[#1F1612]/70 uppercase">
               Cloud Sync
             </span>
+          </div>
+
+          {/* Organization Switcher */}
+          <Show when="signed-in">
+            <OrganizationSwitcher />
+          </Show>
+
+          {/* Auth controls */}
+          <div className="flex items-center pl-1 sm:pl-2 sm:ml-1 sm:border-l sm:border-[#1F1612]/10">
+            <AuthControls />
           </div>
         </div>
       </div>

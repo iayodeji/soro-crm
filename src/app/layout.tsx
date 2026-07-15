@@ -1,3 +1,4 @@
+import {ClerkProvider} from "@clerk/nextjs";
 // src/app/layout.tsx
 import type { Metadata } from 'next';
 import '@/globals.css';
@@ -19,9 +20,11 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
       <body>
-        <div>
+        <ClerkProvider>
+          <div>
           {children}
-        </div>
+          </div>
+        </ClerkProvider>
       </body>
     </html>
   );

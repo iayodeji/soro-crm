@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { ArrowUp, Bot, CalendarDays, Check, Globe, LoaderCircle, Mail, Sparkles, MessageSquarePlus, BookOpen, X } from "lucide-react";
-import type { Lead, Phase, Session } from "@/types";
+import type { Lead, CreateLeadInput, Phase, Session } from "@/types";
 import type { LogActivityInput } from "@/types/activity";
 import type { AgentAction, AgentPlan } from "@/features/agent/types";
 import { WORKSPACE_ID } from "@/lib/workspace";
@@ -181,7 +181,18 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
     if (["update_lead", "move_lead", "draft_email", "send_email", "schedule_meeting"].includes(action.type) && !existingLead) throw new Error("Soro referenced a lead that no longer exists. Run the request again.");
     if (action.type === "create_lead") {
       const timestamp = new Date().toISOString();
-      await onUpdateLead({ id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: action.name?.trim() || "Unidentified Lead", company_name: action.companyName?.trim() || "Unknown company", email: action.email || null, phone: action.phone || null, notes: action.notes || "Created by Soro agent.", phase: PHASES.includes(action.phase as Phase) ? action.phase as Phase : "lead_found", createdAt: timestamp, updatedAt: timestamp });
+      const newLead: CreateLeadInput = {
+        id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: action.name?.trim() || "Unidentified Lead",
+        company_name: action.companyName?.trim() || "Unknown company",
+        email: action.email || null,
+        phone: action.phone || null,
+        notes: action.notes || "Created by Soro agent.",
+        phase: PHASES.includes(action.phase as Phase) ? action.phase as Phase : "lead_found",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      await onUpdateLead(newLead as Lead);
       return;
     }
     if (action.type === "update_lead" || action.type === "move_lead") {

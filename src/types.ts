@@ -1,6 +1,6 @@
 export type Phase = "lead_found" | "prospect_engaged" | "client_closed";
 
-export interface Lead {
+export interface CreateLeadInput {
   id: string;
   name: string;
   company_name: string;
@@ -16,6 +16,10 @@ export interface Lead {
   calendarScheduled?: boolean;
   sheetsSynced?: boolean;
   tasksCreated?: boolean;
+}
+
+export interface Lead extends CreateLeadInput {
+  teamId: string;
 }
 
 export interface ActivityLog {

@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getGeminiClient } from "@/features/leads/server/geminiClient";
 import { callGroq } from "@/features/leads/server/groqClient";
 import { resolveModel } from "@/features/leads/server/modelSelection";
@@ -10,7 +10,7 @@ import {
 } from "@/features/agent/server/agentSchema";
 import type { AgentLeadContext, AgentPlan } from "@/features/agent/types";
 import { getOrCreateSession, addMessageToSession, getTeamKnowledge } from "@/features/agent/server/sessionService";
-import { WORKSPACE_ID } from "@/lib/workspace";
+import { getWorkspaceId } from "@/lib/workspace.server";
 
 function extractJson(text: string): AgentPlan {
   try {
@@ -33,7 +33,7 @@ function buildDynamicSystemInstruction(baseInstruction: string, teamKnowledge?: 
   return parts.join("\n");
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.prompt !== "string" || !Array.isArray(body.leads)) {
     return NextResponse.json({ error: "A prompt and lead context are required." }, { status: 400 });
@@ -41,13 +41,14 @@ export async function POST(request: Request) {
 
   const leads = body.leads as AgentLeadContext[];
   const threadId = body.threadId as string | undefined;
+  const teamId = await getWorkspaceId(request);
 
   let session;
   let teamKnowledge;
   try {
-    const sessionResult = await getOrCreateSession({ teamId: WORKSPACE_ID, userId: WORKSPACE_ID, threadId });
+    const sessionResult = await getOrCreateSession({ teamId, userId: teamId, threadId });
     session = sessionResult.session;
-    teamKnowledge = await getTeamKnowledge(WORKSPACE_ID);
+    teamKnowledge = await getTeamKnowledge(teamId);
   } catch (sessionError: any) {
     console.error("Session setup failed:", sessionError?.message || sessionError);
     return NextResponse.json({ error: "Failed to initialize conversation session." }, { status: 500 });

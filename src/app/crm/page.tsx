@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
@@ -11,7 +12,7 @@ import { ActivityLedger } from "@/features/activity-feed/components/ActivityLedg
 import { getLeadStats } from "@/features/leads/utils/leadStats";
 import { AgentCommandBar } from "@/features/agent/components/AgentCommandBar";
 
-export default function DashboardPage() {
+export default function CrmPage() {
   const router = useRouter();
   const {
     leads, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv,
@@ -39,7 +40,7 @@ export default function DashboardPage() {
         leads={leads}
         onUpdateLead={updateLead}
         onDeleteLead={async (id: string) => { setLeadIdToConfirmDelete(id); }}
-        onSelectLead={(lead: { id: string }) => router.push(`/leads/${lead.id}`)}
+        onSelectLead={(lead: { id: string }) => router.push(`/crm/leads/${lead.id}`)}
         onAddNewLead={addNewLead}
       />
 
