@@ -1,6 +1,5 @@
 import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getAuth, type Auth } from "firebase-admin/auth";
 
 // Server-only. Never import this from a "use client" component or anything
 // that ships to the browser — it holds a service account private key.
@@ -29,4 +28,3 @@ function buildAdminApp(): App {
 const adminApp: App = getApps()[0] ?? buildAdminApp();
 
 export const adminDb: Firestore = getFirestore(adminApp);
-export const adminAuth: Auth = getAuth(adminApp);

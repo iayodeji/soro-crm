@@ -1,152 +1,59 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
+    // User profile docs: writable by the owning user after Firebase custom-token
+    // auth, readable by the user themselves.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    function isTeamMember(teamId) {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/team_memberships/$(request.auth.uid + '_' + teamId));
-    }
+    // Blueprint workspace collections.
+    //
+    // These are written exclusively by the Next.js server via the Firebase
+    // Admin SDK, which bypasses Firestore Rules. The rules below document the
+    // intended access pattern and would take effect only if client SDK access
+    // were ever enabled for these collections.
 
-    function memberRole(teamId) {
-      return get(/databases/$(database)/documents/team_memberships/$(request.auth.uid + '_' + teamId)).data.role;
-    }
-
-    function isTeamAdminOrOwner(teamId) {
-      return isTeamMember(teamId) && memberRole(teamId) in ['owner', 'admin'];
-    }
-
-    function isTeamOwner(teamId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid;
-    }
-
-    function hasPendingInvitation(token, teamId) {
-      let invitePath = /databases/$(database)/documents/invitations/$(token);
-      // .get('email', null) instead of .email: a token without an email claim
-      // (e.g. some non-Google/non-email-scoped auth flows) would otherwise
-      // throw a rule-evaluation error on the bare property access, surfacing
-      // as an opaque permission-denied rather than cleanly falling through to
-      // "no match".
-      let callerEmail = request.auth.token.get('email', null);
-      let inviteEmail = get(invitePath).data.email;
-      return token is string &&
-        exists(invitePath) &&
-        get(invitePath).data.status == 'pending' &&
-        get(invitePath).data.teamId == teamId &&
-        request.time < timestamp(get(invitePath).data.expiresAt) &&
-        (inviteEmail == null ||
-         inviteEmail == '' ||
-         // .lower() on both sides: auth-provider emails are typically
-         // lowercase-normalized already, but invite emails are user-typed
-         // and shouldn't silently fail a same-address match on case alone.
-         (callerEmail != null && inviteEmail.lower() == callerEmail.lower()));
-    }
-
-    // /teams/{teamId}
+    // /teams/{teamId} — workspace metadata synced from Clerk organizations.
+    // Any authenticated user may read team metadata; only server-issued
+    // requests (Admin SDK) may write.
     match /teams/{teamId} {
-      allow read: if isTeamMember(teamId);
-      allow create: if isSignedIn() &&
-        request.resource.data.id == teamId &&
-        request.resource.data.ownerId == request.auth.uid;
-      allow update: if isTeamAdminOrOwner(teamId);
-      allow delete: if isTeamMember(teamId) && memberRole(teamId) == 'owner';
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
-    // /team_memberships/{userId}_{teamId}
-    match /team_memberships/{membershipDocId} {
-      // FIX: the "is this my own doc?" check now derives entirely from the doc ID
-      // (membershipDocId == "{uid}_{teamId}") instead of resource.data.userId.
-      // This matters because transaction.get() on this doc runs *before* the doc
-      // exists (first-time join pre-check in joinTeamViaInvitation). On a
-      // nonexistent doc, `resource` is null in security rules, so any reference
-      // to resource.data throws -> Firestore reports "permission-denied" instead
-      // of "not found". Deriving from the ID avoids touching resource.data at all
-      // when the requester is checking their own membership.
-      allow read: if isSignedIn() &&
-        (
-          (resource != null && resource.data.userId == request.auth.uid) ||
-          membershipDocId.split('_')[0] == request.auth.uid ||
-          isTeamMember(resource.data.teamId)
-        );
-      // A user can create their own membership (team creation, or accepting an invite).
-      // NOTE: this intentionally requires `role` + either isTeamOwner or a valid
-      // pending invitation on every create — do not loosen this to accommodate a
-      // presence-only upsert (see updatePresence in teamService.ts), since that
-      // would let any signed-in user self-grant isTeamMember() on an arbitrary
-      // team with no invitation at all.
-      allow create: if isSignedIn() &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.id == request.auth.uid &&
-        membershipDocId == request.auth.uid + '_' + request.resource.data.teamId &&
-        (
-          (isTeamOwner(request.resource.data.teamId) && request.resource.data.role == 'owner') ||
-          hasPendingInvitation(request.resource.data.invitationToken, request.resource.data.teamId)
-        );
-      // Users can update their own presence/activity; admins/owners can change anyone's role
-      allow update: if isSignedIn() &&
-        (
-          (resource.data.userId == request.auth.uid &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'activity', 'lastActiveAt'])) ||
-          isTeamAdminOrOwner(resource.data.teamId)
-        );
-      allow delete: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isTeamAdminOrOwner(resource.data.teamId));
+    // /team_memberships/{membershipId} — membership records enriched from
+    // Clerk and synced to Firestore for the blueprint data model.
+    match /team_memberships/{membershipId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
-    // /leads/{leadId}
+    // /leads/{leadId} — leads are scoped to a teamId and are read/written
+    // by the server. Client SDK is not granted direct access.
     match /leads/{leadId} {
-      allow read, update, delete: if isTeamMember(resource.data.teamId);
-      allow create: if isTeamMember(request.resource.data.teamId);
+      allow read, write: if false;
     }
 
-    // /invitations/{token}
+    // /invitations/{token} — invitation records created by the server.
+    // Tokens may be read publicly for acceptance flows; writes are server-only.
     match /invitations/{token} {
-      allow get: if isSignedIn();
-      allow create: if isTeamAdminOrOwner(request.resource.data.teamId);
-      // FIX (email fallback): open/link-based invites (empty or null email) can
-      // still be marked accepted, matching hasPendingInvitation()'s own allowance
-      // for open invites during the join itself.
-      // FIX (expiry, this update): marking an invite 'expired' is not
-      // security-sensitive — it doesn't grant anyone access, it just records
-      // that the window passed — so it no longer requires an email match.
-      // Previously, expiring a *targeted* invite (one with a concrete email)
-      // could permission-deny if the caller wasn't that exact recipient, e.g.
-      // the transaction in joinTeamViaInvitation expiring a stale invite that
-      // was addressed to someone else. Only the 'accepted' transition still
-      // checks identity, since that one does grant access.
-      // Email comparison is case-insensitive (.lower() both sides) and
-      // null-safe against a missing token email claim — see hasPendingInvitation().
-      allow update: if isSignedIn() &&
-        resource.data.status == 'pending' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-        (
-          request.resource.data.status == 'expired' ||
-          (request.resource.data.status == 'accepted' &&
-            (resource.data.email == null ||
-             resource.data.email == '' ||
-             (request.auth.token.get('email', null) != null &&
-              resource.data.email.lower() == request.auth.token.get('email', null).lower())))
-        );
+      allow read: if true;
+      allow write: if false;
     }
 
-    // /sessions/{sessionId}
+    // Server-only collections (sessions, team_knowledge, etc.).
     match /sessions/{sessionId} {
-      allow read: if isTeamMember(resource.data.teamId);
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isTeamMember(resource.data.teamId) && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['messages', 'summary', 'lastActivity', 'title']);
-      allow delete: if isTeamMember(resource.data.teamId) && resource.data.userId == request.auth.uid;
+      allow read, write: if false;
     }
 
-    // /team_knowledge/{teamId}
     match /team_knowledge/{teamId} {
-      allow read: if isTeamMember(teamId);
-      allow create: if isTeamAdminOrOwner(teamId);
-      allow update: if isTeamAdminOrOwner(teamId);
-      allow delete: if isTeamAdminOrOwner(teamId);
+      allow read, write: if false;
+    }
+
+    // Catch-all: deny all other client access.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -1,11 +1,8 @@
 export type ActivityEventType =
-  | "auth_success" | "signout"
   | "tasks_synced" | "sheets_synced" | "gmail_sent"
   | "ai_parse_completed" | "ai_parse_fallback" | "ai_parse_failed"
   | "lead_added" | "lead_deleted"
   | "csv_exported" | "csv_export_failed"
-  | "workspace_switched" | "workspace_created" | "workspace_deleted"
-  | "invite_joined" | "invite_expired" | "invite_error"
   | "generic";
 
 export interface ToastMessage {

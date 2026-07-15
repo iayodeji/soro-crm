@@ -1,18 +1,10 @@
-// Removed all "firebase/firestore" client imports
 import { callGroq } from "@/features/leads/server/groqClient";
 import { resolveModel } from "@/features/leads/server/modelSelection";
 import type { Session, SessionMessage, TeamKnowledge } from "@/types";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-// ⚠️ IMPORTANT: Make sure this points to your ADMIN initialization, not the client one!
-import { adminDb } from "@/lib/firebaseAdmin"; 
-
-const SESSIONS_COLLECTION = "sessions";
-const TEAM_KNOWLEDGE_COLLECTION = "team_knowledge";
-
-function getDb() {
-  if (!adminDb) throw new Error("Firestore Admin SDK is not configured.");
-  return adminDb;
-}
+const SESSIONS_TABLE = "sessions";
+const TEAM_KNOWLEDGE_TABLE = "team_knowledge";
 
 function generateThreadId(): string {
   return `thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -33,7 +25,6 @@ export async function createSession({
   threadId?: string;
   firstMessage?: { role: "user" | "assistant"; content: string; timestamp: string };
 }): Promise<Session> {
-  const db = getDb();
   const sessionId = generateSessionId();
   const resolvedThreadId = threadId || generateThreadId();
   const now = new Date().toISOString();
@@ -50,45 +41,59 @@ export async function createSession({
     title: firstMessage?.content?.slice(0, 60) || "New conversation",
   };
 
-  await db.collection(SESSIONS_COLLECTION).doc(sessionId).set(session);
+  const { error } = await getSupabaseAdmin()
+    .from(SESSIONS_TABLE)
+    .insert(session);
+
+  if (error) {
+    throw new Error(`Failed to create session: ${error.message}`);
+  }
+
   return session;
 }
 
 export async function getSession(sessionId: string): Promise<Session | null> {
-  const db = getDb();
-  const snapshot = await db.collection(SESSIONS_COLLECTION).doc(sessionId).get();
-  
-  // Note: .exists is a property in the Admin SDK, not a function!
-  if (!snapshot.exists) return null; 
-  return { id: snapshot.id, ...snapshot.data() } as Session;
+  const { data, error } = await getSupabaseAdmin()
+    .from(SESSIONS_TABLE)
+    .select("*")
+    .eq("id", sessionId)
+    .single();
+
+  if (error || !data) return null;
+  return data as Session;
 }
 
 export async function getSessionsByTeam(teamId: string, limitCount = 20): Promise<Session[]> {
-  const db = getDb();
-  const snapshot = await db.collection(SESSIONS_COLLECTION)
-    .where("teamId", "==", teamId)
-    .orderBy("lastActivity", "desc")
-    .limit(limitCount)
-    .get();
-    
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Session));
+  const { data, error } = await getSupabaseAdmin()
+    .from(SESSIONS_TABLE)
+    .select("*")
+    .eq("teamId", teamId)
+    .order("lastActivity", { ascending: false })
+    .limit(limitCount);
+
+  if (error) {
+    throw new Error(`Failed to fetch sessions: ${error.message}`);
+  }
+
+  return (data ?? []) as Session[];
 }
 
 export async function getSessionsByThread(teamId: string, threadId: string): Promise<Session[]> {
-  const db = getDb();
-  const snapshot = await db.collection(SESSIONS_COLLECTION)
-    .where("teamId", "==", teamId)
-    .where("threadId", "==", threadId)
-    .orderBy("lastActivity", "desc")
-    .get();
-    
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Session));
+  const { data, error } = await getSupabaseAdmin()
+    .from(SESSIONS_TABLE)
+    .select("*")
+    .eq("teamId", teamId)
+    .eq("threadId", threadId)
+    .order("lastActivity", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch sessions by thread: ${error.message}`);
+  }
+
+  return (data ?? []) as Session[];
 }
 
 export async function addMessageToSession(sessionId: string, message: SessionMessage): Promise<Session> {
-  const db = getDb();
-  const sessionRef = db.collection(SESSIONS_COLLECTION).doc(sessionId);
-
   const session = await getSession(sessionId);
   if (!session) throw new Error("Session not found.");
 
@@ -111,7 +116,15 @@ export async function addMessageToSession(sessionId: string, message: SessionMes
     lastActivity: now,
   };
 
-  await sessionRef.set(updatedSession);
+  const { error } = await getSupabaseAdmin()
+    .from(SESSIONS_TABLE)
+    .update(updatedSession)
+    .eq("id", sessionId);
+
+  if (error) {
+    throw new Error(`Failed to update session: ${error.message}`);
+  }
+
   return updatedSession;
 }
 
@@ -165,17 +178,26 @@ export async function getOrCreateSession({
 }
 
 export async function getTeamKnowledge(teamId: string): Promise<TeamKnowledge | null> {
-  const db = getDb();
-  const snapshot = await db.collection(TEAM_KNOWLEDGE_COLLECTION).doc(teamId).get();
-  
-  if (!snapshot.exists) return null;
-  return { teamId, ...snapshot.data() } as TeamKnowledge;
+  const { data, error } = await getSupabaseAdmin()
+    .from(TEAM_KNOWLEDGE_TABLE)
+    .select("*")
+    .eq("teamId", teamId)
+    .single();
+
+  if (error || !data) return null;
+  return { teamId, ...data } as TeamKnowledge;
 }
 
 export async function saveTeamKnowledge(knowledge: TeamKnowledge): Promise<void> {
-  const db = getDb();
-  await db.collection(TEAM_KNOWLEDGE_COLLECTION).doc(knowledge.teamId).set({
-    ...knowledge,
-    updatedAt: new Date().toISOString(),
-  });
+  const { error } = await getSupabaseAdmin()
+    .from(TEAM_KNOWLEDGE_TABLE)
+    .upsert({
+      ...knowledge,
+      teamId: knowledge.teamId,
+      updatedAt: new Date().toISOString(),
+    });
+
+  if (error) {
+    throw new Error(`Failed to save team knowledge: ${error.message}`);
+  }
 }
