@@ -2,35 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import {
-  onAuthStateChanged,
-  signInWithCustomToken,
-  signOut,
-  type User as FirebaseUser,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { firebaseAuth, firebaseDb } from "@/lib/firebase-client";
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-const FIREBASE_TOKEN_ENDPOINT = "/api/auth/firebase";
+const SUPABASE_TOKEN_ENDPOINT = "/api/auth/supabase";
 const SYNC_TEAM_ENDPOINT = "/api/sync/team";
 const SYNC_MEMBERS_ENDPOINT = "/api/sync/members";
 
-export interface FirebaseSyncState {
-  firebaseUser: FirebaseUser | null;
+export interface SupabaseSyncState {
+  supabaseUser: SupabaseUser | null;
+  session: Session | null;
   isSyncing: boolean;
-  isFirebaseReady: boolean;
-  /** True once we've confirmed whether a `users/{uid}` doc already exists. */
+  isSupabaseReady: boolean;
+  /** True once we've confirmed whether a `users` row already exists. */
   hasProfile: boolean;
   error: Error | null;
   retry: () => void;
 }
 
-export function useFirebaseSync(): FirebaseSyncState {
+export function useSupabaseSync(): SupabaseSyncState {
   const { isLoaded, isSignedIn, userId, orgId } = useAuth();
 
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(
-    firebaseAuth.currentUser,
-  );
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
@@ -41,20 +35,29 @@ export function useFirebaseSync(): FirebaseSyncState {
   const lastOrgIdRef = useRef<string | null>(null);
   const [, setAttempt] = useState(0);
 
-  // Mirror Firebase's own auth state into React state.
+  // Mirror Supabase's own auth state into React state.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      setFirebaseUser(user);
-    });
-    return unsubscribe;
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange(
+      (_event, sess) => {
+        setSession(sess);
+        setSupabaseUser(sess?.user ?? null);
+      },
+    );
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const syncWorkspace = useCallback(async () => {
     if (!orgId) return;
     try {
       const [teamRes, membersRes] = await Promise.all([
-        fetch(SYNC_TEAM_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" } }),
-        fetch(SYNC_MEMBERS_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" } }),
+        fetch(SYNC_TEAM_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }),
+        fetch(SYNC_MEMBERS_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }),
       ]);
       if (!teamRes.ok || !membersRes.ok) {
         throw new Error("Workspace sync failed.");
@@ -69,7 +72,8 @@ export function useFirebaseSync(): FirebaseSyncState {
 
     const orgChanged = lastOrgIdRef.current !== orgId;
 
-    if (!orgChanged && firebaseAuth.currentUser?.uid === userId) {
+    const { data: current } = await supabaseBrowser.auth.getUser();
+    if (!orgChanged && current.user?.id === userId) {
       syncingForUserRef.current = userId;
       setError(null);
       return;
@@ -83,23 +87,29 @@ export function useFirebaseSync(): FirebaseSyncState {
     setError(null);
 
     try {
-      const res = await fetch(FIREBASE_TOKEN_ENDPOINT, {
+      const res = await fetch(SUPABASE_TOKEN_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
       if (!res.ok) {
         throw new Error(
-          `Firebase token exchange failed (${res.status}). Confirm the Clerk session and server route.`,
+          `Supabase token exchange failed (${res.status}). Confirm the Clerk session and server route.`,
         );
       }
-      const { token } = (await res.json()) as { token: string };
-      if (!token) throw new Error("No token returned from /api/auth/firebase.");
+      const { session: newSession } = (await res.json()) as {
+        session: Session;
+      };
+      if (!newSession)
+        throw new Error("No session returned from /api/auth/supabase.");
 
       if (cancelledRef.current || syncingForUserRef.current !== userId) {
         return;
       }
 
-      await signInWithCustomToken(firebaseAuth, token);
+      const { error: setErr } =
+        await supabaseBrowser.auth.setSession(newSession);
+      if (setErr) throw setErr;
+
       lastOrgIdRef.current = orgId;
       attemptRef.current = 0;
 
@@ -123,37 +133,44 @@ export function useFirebaseSync(): FirebaseSyncState {
       return;
     }
 
-    // Clerk is signed out — clean up Firebase
+    // Clerk is signed out — clean up Supabase
     syncingForUserRef.current = null;
     cancelledRef.current = true; // Cancel any active in-flight requests
-    if (firebaseAuth.currentUser) {
-      void signOut(firebaseAuth).catch(() => {
-        /* best-effort teardown */
-      });
-    }
+    supabaseBrowser.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        supabaseBrowser.auth.signOut().catch(() => {
+          /* best-effort teardown */
+        });
+      }
+    });
   }, [isLoaded, isSignedIn, userId, orgId, syncWithClerk]);
 
-  const isFirebaseReady =
-    isLoaded && !!isSignedIn && !!userId && firebaseUser?.uid === userId;
+  const isSupabaseReady =
+    isLoaded && !!isSignedIn && !!userId && supabaseUser?.id === userId;
 
-  // Once Firebase is authenticated as the current user, check whether their
-  // profile doc already exists so returning users skip the save step.
+  // Once Supabase is authenticated as the current user, check whether their
+  // profile row already exists so returning users skip the save step.
   useEffect(() => {
-    if (!isFirebaseReady || !userId) return;
+    if (!isSupabaseReady || !userId) return;
 
     let active = true;
-    getDoc(doc(firebaseDb, "users", userId))
-      .then((snap) => {
-        if (active) setHasProfile(snap.exists());
-      })
-      .catch(() => {
+    (async () => {
+      try {
+        const { data } = await supabaseBrowser
+          .from("users")
+          .select("clerkUserId")
+          .eq("clerkUserId", userId)
+          .maybeSingle();
+        if (active) setHasProfile(Boolean(data));
+      } catch {
         if (active) setHasProfile(false);
-      });
+      }
+    })();
 
     return () => {
       active = false;
     };
-  }, [isFirebaseReady, userId]);
+  }, [isSupabaseReady, userId]);
 
   const retry = useCallback(() => {
     attemptRef.current += 1;
@@ -163,5 +180,13 @@ export function useFirebaseSync(): FirebaseSyncState {
     void syncWithClerk();
   }, [syncWithClerk]);
 
-  return { firebaseUser, isSyncing, isFirebaseReady, hasProfile, error, retry };
+  return {
+    supabaseUser,
+    session,
+    isSyncing,
+    isSupabaseReady,
+    hasProfile,
+    error,
+    retry,
+  };
 }

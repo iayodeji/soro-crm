@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Failed to sync members:", err);
     return NextResponse.json(
-      { error: "Failed to sync members" },
+      { error: "Failed to sync members", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }

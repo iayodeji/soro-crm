@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Failed to sync team:", err);
     return NextResponse.json(
-      { error: "Failed to sync team" },
+      { error: "Failed to sync team", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }

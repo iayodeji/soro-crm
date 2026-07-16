@@ -35,10 +35,20 @@ export function useClerkSync(): ClerkSyncState {
         fetch(SYNC_MEMBERS_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" } }),
       ]);
       if (!teamRes.ok || !membersRes.ok) {
-        throw new Error("Workspace sync failed.");
+        const failed = !teamRes.ok ? teamRes : membersRes;
+        const detail = await failed
+          .json()
+          .then((body) => (body?.detail as string | undefined) ?? (body?.error as string | undefined))
+          .catch(() => undefined);
+        throw new Error(
+          `Workspace sync failed (${failed.url.replace(location.origin, "")}: ${failed.status})${
+            detail ? ` - ${detail}` : ""
+          }`
+        );
       }
     } catch (err) {
       console.error("Workspace sync error:", err);
+      throw err instanceof Error ? err : new Error(String(err));
     }
   }, [orgId]);
 
