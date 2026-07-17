@@ -1,20 +1,40 @@
 export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { getWorkspaceId } from "@/lib/workspace.server";
+import { ensureWorkspaceTeam, getWorkspaceId } from "@/lib/workspace.server";
 import type { Lead, CreateLeadInput } from "@/types";
 
-async function requireLeadBody(body: any) {
-  const lead = body?.lead as CreateLeadInput | undefined;
-  if (!lead?.id) {
-    return { error: NextResponse.json({ error: "lead.id is required." }, { status: 400 }) };
+const PHASES = new Set(["lead_found", "prospect_engaged", "client_closed"]);
+
+function requireLeadBody(body: unknown) {
+  const lead = (body as { lead?: CreateLeadInput } | null)?.lead;
+  const valid =
+    lead &&
+    typeof lead.id === "string" && lead.id.trim() &&
+    typeof lead.name === "string" && lead.name.trim() &&
+    typeof lead.company_name === "string" && lead.company_name.trim() &&
+    typeof lead.notes === "string" &&
+    typeof lead.createdAt === "string" &&
+    typeof lead.updatedAt === "string" &&
+    PHASES.has(lead.phase) &&
+    (lead.email === null || typeof lead.email === "string") &&
+    (lead.phone === null || typeof lead.phone === "string") &&
+    (lead.linkedinUrl === undefined || lead.linkedinUrl === null || typeof lead.linkedinUrl === "string") &&
+    (lead.companyWebsite === undefined || lead.companyWebsite === null || typeof lead.companyWebsite === "string");
+
+  if (!valid) {
+    return { error: NextResponse.json({ error: "A complete, valid lead is required." }, { status: 400 }) };
   }
   return { lead };
 }
 
 export async function GET(req: NextRequest) {
+  const teamId = getWorkspaceId(req);
+  if (!teamId) {
+    return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+  }
+
   try {
-    const teamId = await getWorkspaceId(req);
     const { data, error } = await getSupabaseAdmin()
       .from("leads")
       .select("*")
@@ -37,6 +57,8 @@ export async function GET(req: NextRequest) {
       updatedAt: row.updatedAt,
       marketFitThesis: row.marketFitThesis,
       momTestQuestions: row.momTestQuestions,
+      linkedinUrl: row.linkedinUrl,
+      companyWebsite: row.companyWebsite,
       gmailSent: row.gmailSent,
       calendarScheduled: row.calendarScheduled,
       sheetsSynced: row.sheetsSynced,
@@ -51,12 +73,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const teamId = await getWorkspaceId(request);
+  const teamId = getWorkspaceId(request);
+  if (!teamId) {
+    return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+  }
   const body = await request.json().catch(() => null);
   const { lead, error } = await requireLeadBody(body);
   if (error) return error;
 
   try {
+    await ensureWorkspaceTeam(request);
+
     const { data, error: insertError } = await getSupabaseAdmin()
       .from("leads")
       .insert({
@@ -79,39 +106,44 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const teamId = await getWorkspaceId(request);
+  const teamId = getWorkspaceId(request);
+  if (!teamId) {
+    return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+  }
   const body = await request.json().catch(() => null);
   const { lead, error } = await requireLeadBody(body);
   if (error) return error;
 
   try {
-    // 1. Check if it exists (using maybeSingle so it doesn't throw if not found)
-    const { data: existing } = await getSupabaseAdmin()
+    const { data: existing, error: lookupError } = await getSupabaseAdmin()
       .from("leads")
       .select("teamId")
       .eq("id", lead!.id)
       .maybeSingle();
 
-    // 2. If it DOES exist but belongs to another workspace, deny access
+    if (lookupError) throw new Error(lookupError.message);
+
     if (existing && existing.teamId !== teamId) {
       return NextResponse.json({ error: "Lead belongs to another workspace." }, { status: 403 });
     }
+    if (!existing) {
+      return NextResponse.json({ error: "Lead not found in this workspace." }, { status: 404 });
+    }
 
-    // 3. Upsert the lead (Creates it if new, Updates it if existing)
-    const { data, error: upsertError } = await getSupabaseAdmin()
+    const { data, error: updateError } = await getSupabaseAdmin()
       .from("leads")
-      .upsert({
+      .update({
         ...lead,
-        teamId, // Force assignment to current workspace
+        teamId,
         updatedAt: new Date().toISOString(),
-      }, {
-        onConflict: 'id'
       })
+      .eq("id", lead!.id)
+      .eq("teamId", teamId)
       .select()
       .single();
 
-    if (upsertError) {
-      throw new Error(upsertError.message);
+    if (updateError) {
+      throw new Error(updateError.message);
     }
 
     return NextResponse.json({ ok: true, lead: data });
@@ -122,7 +154,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const teamId = await getWorkspaceId(request);
+  const teamId = getWorkspaceId(request);
+  if (!teamId) {
+    return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+  }
   const { searchParams } = new URL(request.url);
   const leadId = searchParams.get("leadId");
   if (!leadId) {

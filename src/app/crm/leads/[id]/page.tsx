@@ -6,7 +6,7 @@ import { LeadDetailView } from "@/features/leads/components/LeadDetailView";
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { leads, leadsLoaded, updateLead, legacyLogActivity } = useWorkspace();
+  const { leads, companies, leadsLoaded, updateLead, legacyLogActivity } = useWorkspace();
   const { id } = use(params);
   const lead = leads.find((l) => l.id === id);
 
@@ -24,6 +24,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
       onClose={() => router.push("/crm")}
       onUpdateLead={updateLead}
       onLogActivity={legacyLogActivity}
+      companies={companies.map((company) => ({ id: company.id, name: company.name }))}
     />
   );
 }

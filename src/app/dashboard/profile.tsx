@@ -26,7 +26,6 @@ export function Profile({ onSaved }: { onSaved?: () => void }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clerkUserId: user.id,
           email: user.primaryEmailAddress?.emailAddress ?? null,
           firstName: user.firstName ?? null,
           lastName: user.lastName ?? null,

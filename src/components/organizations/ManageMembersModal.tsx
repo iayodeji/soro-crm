@@ -26,7 +26,7 @@ export function ManageMembersModal({ isOpen, onClose, orgId, orgName }: ManageMe
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("basic_member");
+  const [inviteRole, setInviteRole] = useState("org:member");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -72,7 +72,7 @@ export function ManageMembersModal({ isOpen, onClose, orgId, orgName }: ManageMe
       }
 
       setInviteEmail("");
-      setInviteRole("basic_member");
+      setInviteRole("org:member");
       setStatus("Invitation sent successfully.");
       
       setTimeout(() => setStatus(null), 3000);
@@ -153,8 +153,8 @@ export function ManageMembersModal({ isOpen, onClose, orgId, orgName }: ManageMe
                 onChange={(e) => setInviteRole(e.target.value)}
                 className="rounded-lg border border-[#1F1612]/10 bg-[#FDFBF2] px-3 py-2.5 text-sm outline-none focus:border-[#1F1612]/30"
               >
-                <option value="basic_member">Member</option>
-                <option value="admin">Admin</option>
+                <option value="org:member">Member</option>
+                <option value="org:admin">Admin</option>
               </select>
               <button
                 type="submit"
@@ -220,7 +220,7 @@ export function ManageMembersModal({ isOpen, onClose, orgId, orgName }: ManageMe
                       </div>
                     </div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7A8452] bg-[#7A8452]/10 px-2 py-0.5 rounded-full">
-                      {member.role === "admin" ? "Admin" : "Member"}
+                      {member.role === "org:admin" || member.role === "admin" ? "Admin" : "Member"}
                     </span>
                     <button
                       onClick={() => handleRemove(member.userId)}

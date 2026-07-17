@@ -1,5 +1,10 @@
 # Soro-CRM — Project Documentation
 
+> **Maintenance note (2026-07):** This guide still contains historical
+> Firebase-era references. The running application uses Clerk for identity and
+> Supabase for persistence; source code and Supabase migrations are the current
+> authority until this guide is fully rewritten.
+
 ## What Is This?
 
 Soro-CRM is a multi-tenant customer discovery CRM built on Next.js 15 + React 19 + Firebase. Its purpose is to help early-stage founders manage a pipeline of discovery leads through three stages (Lead Found → Prospect Engaged → Client Closed), with AI-assisted lead parsing, Mom Test–style discovery questions, and Google Workspace integration (Sheets, Gmail, Calendar, Tasks).

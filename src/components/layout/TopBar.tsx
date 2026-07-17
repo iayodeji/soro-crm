@@ -1,5 +1,6 @@
 import React from "react";
-import { Sparkles, Radio, CheckCircle2, AlertCircle } from "lucide-react";
+import { Sparkles, Radio, CheckCircle2, AlertCircle, Mail } from "lucide-react";
+import Link from "next/link";
 import { AuthControls } from "@/components/auth/AuthControls";
 import { OrganizationSwitcher } from "@/components/organizations/OrganizationSwitcher";
 import type { NetworkStatus } from "@/hooks/useNetworkStatus";
@@ -58,6 +59,13 @@ export const TopBar: React.FC<TopBarProps> = ({ networkStatus }) => {
           {/* Organization Switcher */}
           <Show when="signed-in">
             <OrganizationSwitcher />
+            <Link
+              href="/crm/settings/mail"
+              className="hidden md:inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[#1F1612]/65 transition-colors hover:bg-[#1F1612]/5 hover:text-[#1F1612] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B74A26]"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Mail settings
+            </Link>
           </Show>
 
           {/* Auth controls */}

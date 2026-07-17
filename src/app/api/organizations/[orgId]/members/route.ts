@@ -32,6 +32,18 @@ function mapMembership(membership: any): MemberResponse {
   };
 }
 
+function canManageMembers(orgRole: string | null | undefined): boolean {
+  return orgRole === "org:admin" || orgRole === "admin";
+}
+
+function normalizeInvitationRole(role: unknown): "org:member" | "org:admin" | null {
+  if (role === undefined || role === null || role === "" || role === "basic_member" || role === "org:member") {
+    return "org:member";
+  }
+  if (role === "admin" || role === "org:admin") return "org:admin";
+  return null;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
@@ -74,7 +86,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
-  const { userId, orgId: activeOrgId } = getAuth(req);
+  const { userId, orgId: activeOrgId, orgRole } = getAuth(req);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -87,6 +99,9 @@ export async function POST(
       { error: "Forbidden - not a member of this organization" },
       { status: 403 }
     );
+  }
+  if (!canManageMembers(orgRole)) {
+    return NextResponse.json({ error: "Only organization administrators can invite members." }, { status: 403 });
   }
 
   try {
@@ -104,11 +119,17 @@ export async function POST(
       );
     }
 
+    const invitationRole = normalizeInvitationRole(role);
+    if (!invitationRole) {
+      return NextResponse.json({ error: "A valid organization role is required." }, { status: 400 });
+    }
+
     const client = createClerkClient({ secretKey });
     const invitation = await client.organizations.createOrganizationInvitation({
       organizationId: orgId,
+      inviterUserId: userId,
       emailAddress: email.trim(),
-      role: role || "basic_member",
+      role: invitationRole,
     });
 
     return NextResponse.json(invitation);

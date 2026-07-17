@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
 import {
-  ArrowLeft, Sparkles, Check, User, Building2, Phone, HelpCircle,
-  CornerDownRight, CheckCircle2, AlertCircle, FileText,
-  FileDown, Layers, MessageSquare, Save
+  ArrowLeft, Check, User, Building2, Phone, Linkedin, Globe,
+  CornerDownRight, CheckCircle2, FileText,
+  FileDown, Layers, MessageSquare, Save, Mail, CalendarDays, Send
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Lead, Phase } from "@/types";
+import { ActivityTimeline } from "@/features/activities/components/ActivityTimeline";
 
 interface LeadDetailViewProps {
   lead: Lead | null;
   onClose: () => void;
   onUpdateLead: (lead: Lead) => Promise<void>;
   onLogActivity: (action: string, details: string, type: "success" | "info" | "warning") => void;
+  companies?: Array<{ id: string; name: string }>;
 }
 
 export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
@@ -19,14 +21,29 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
   onClose,
   onUpdateLead,
   onLogActivity,
+  companies = [],
 }) => {
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
   const [notes, setNotes] = useState("");
   const [phase, setPhase] = useState<Phase>("lead_found");
   const [isSaving, setIsSaving] = useState(false);
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [meetingStart, setMeetingStart] = useState("");
+  const [meetingEnd, setMeetingEnd] = useState("");
+  const [meetingNotes, setMeetingNotes] = useState("");
+  const [workspaceAction, setWorkspaceAction] = useState<"mail" | "calendar" | null>(null);
+  const [workspaceStatus, setWorkspaceStatus] = useState("");
+  const [isWorkspaceWorking, setIsWorkspaceWorking] = useState(false);
+  const [senders, setSenders] = useState<Array<{ sendAsEmail: string; displayName?: string; isDefault?: boolean }>>([]);
+  const [selectedSender, setSelectedSender] = useState("");
+  const [isLoadingSenders, setIsLoadingSenders] = useState(false);
 
   // Sync state to current lead
   useEffect(() => {
@@ -35,8 +52,15 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
       setCompanyName(lead.company_name || "");
       setEmail(lead.email || "");
       setPhone(lead.phone || "");
+      setLinkedinUrl(lead.linkedinUrl || "");
+      setCompanyWebsite(lead.companyWebsite || "");
       setNotes(lead.notes || "");
       setPhase(lead.phase || "lead_found");
+      setMailSubject(`Quick question about ${lead.company_name}`);
+      setMailBody(`Hi ${lead.name},\n\nI’d love to learn about how you currently handle this workflow. Would you be open to a short conversation?\n\nBest,`);
+      setMeetingTitle(`Discovery conversation — ${lead.name}`);
+      setMeetingNotes(`Discovery conversation with ${lead.name} at ${lead.company_name}.`);
+      setWorkspaceStatus("");
     }
   }, [lead]);
 
@@ -51,6 +75,8 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
         company_name: companyName.trim(),
         email: email.trim() || null,
         phone: phone.trim() || null,
+        linkedinUrl: linkedinUrl.trim() || null,
+        companyWebsite: companyWebsite.trim() || null,
         notes: notes.trim(),
         phase,
       };
@@ -69,13 +95,15 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
 
   const handleLocalCSVExportSingle = () => {
     try {
-      const headers = ["Lead ID", "Founder Name", "Company", "Email", "Phone", "Phase", "Market-Fit Thesis", "Created At"];
+      const headers = ["Lead ID", "Founder Name", "Company", "Email", "Phone", "LinkedIn", "Company Website", "Phase", "Market-Fit Thesis", "Created At"];
       const row = [
         `"${lead.id}"`,
         `"${lead.name.replace(/"/g, '""')}"`,
         `"${lead.company_name.replace(/"/g, '""')}"`,
         `"${(lead.email || "").replace(/"/g, '""')}"`,
         `"${(lead.phone || "").replace(/"/g, '""')}"`,
+        `"${(lead.linkedinUrl || "").replace(/"/g, '""')}"`,
+        `"${(lead.companyWebsite || "").replace(/"/g, '""')}"`,
         `"${lead.phase}"`,
         `"${(lead.marketFitThesis || "").replace(/"/g, '""')}"`,
         `"${lead.createdAt}"`
@@ -94,6 +122,83 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
       onLogActivity("Lead Exported Offline", `Successfully downloaded direct offline Excel backup of ${lead.name}'s profile.`, "success");
     } catch (err: any) {
       onLogActivity("Export Failed", err.message || "Failed offline export", "warning");
+    }
+  };
+
+  const sendMail = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsWorkspaceWorking(true);
+    setWorkspaceStatus("");
+    try {
+      const response = await fetch("/api/workspace/gmail", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id, subject: mailSubject, body: mailBody }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send the email.");
+      await onUpdateLead({ ...lead, gmailSent: true });
+      setWorkspaceStatus("Email sent from your connected Gmail account.");
+      onLogActivity("Gmail Sent", `Sent outreach to ${lead.email}.`, "success");
+    } catch (error: any) {
+      setWorkspaceStatus(error.message || "Could not send the email.");
+    } finally {
+      setIsWorkspaceWorking(false);
+    }
+  };
+
+  const loadSenders = async () => {
+    setIsLoadingSenders(true);
+    setWorkspaceStatus("");
+    try {
+      const response = await fetch("/api/workspace/gmail/senders");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load your Gmail sender addresses.");
+      setSenders(data.senders || []);
+      setSelectedSender(data.preferred || "");
+    } catch (error: any) {
+      setWorkspaceStatus(error.message || "Could not load your Gmail sender addresses.");
+    } finally {
+      setIsLoadingSenders(false);
+    }
+  };
+
+  const saveSender = async (fromEmail: string) => {
+    setSelectedSender(fromEmail);
+    setIsWorkspaceWorking(true);
+    setWorkspaceStatus("");
+    try {
+      const response = await fetch("/api/workspace/gmail/senders", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fromEmail }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save your sender address.");
+      setWorkspaceStatus("Sender saved for future emails.");
+    } catch (error: any) {
+      setWorkspaceStatus(error.message || "Could not save your sender address.");
+      await loadSenders();
+    } finally {
+      setIsWorkspaceWorking(false);
+    }
+  };
+
+  const scheduleMeeting = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsWorkspaceWorking(true);
+    setWorkspaceStatus("");
+    try {
+      const response = await fetch("/api/workspace/calendar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id, title: meetingTitle, description: meetingNotes, startAt: meetingStart, endAt: meetingEnd }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create the calendar event.");
+      await onUpdateLead({ ...lead, calendarScheduled: true });
+      setWorkspaceStatus("Calendar event created and invitation sent.");
+      onLogActivity("Calendar Scheduled", `Created a calendar event with ${lead.name}.`, "success");
+    } catch (error: any) {
+      setWorkspaceStatus(error.message || "Could not create the calendar event.");
+    } finally {
+      setIsWorkspaceWorking(false);
     }
   };
 
@@ -210,6 +315,35 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
 
             {/* Pipeline Phase */}
             <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/50 block">LinkedIn Profile</label>
+              <div className="relative">
+                <Linkedin className="absolute left-3 top-2.5 w-4 h-4 text-[#1F1612]/30" />
+                <input
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/in/founder"
+                  className="w-full bg-white border border-[#1F1612]/10 rounded-xl pl-9 pr-3 py-2 text-xs text-[#1F1612] outline-none focus:ring-1 focus:ring-[#B74A26]/30 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/50 block">Company Website</label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-[#1F1612]/30" />
+                <input
+                  type="url"
+                  value={companyWebsite}
+                  onChange={(e) => setCompanyWebsite(e.target.value)}
+                  placeholder="https://company.com"
+                  className="w-full bg-white border border-[#1F1612]/10 rounded-xl pl-9 pr-3 py-2 text-xs text-[#1F1612] outline-none focus:ring-1 focus:ring-[#B74A26]/30 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Pipeline Phase */}
+            <div className="space-y-1.5">
               <label className="text-[10px] uppercase font-bold tracking-widest text-[#1F1612]/50 block">Pipeline Stage</label>
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 <button
@@ -265,67 +399,35 @@ export const LeadDetailView: React.FC<LeadDetailViewProps> = ({
         {/* Right Columns: AI Coach Insights and Offline Backup */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Soro Coach Analysis */}
-          <div className="bg-white/60 border border-[#1F1612]/10 rounded-2xl p-6 shadow-sm space-y-6">
-            <div className="border-b border-[#1F1612]/5 pb-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <span className="p-1.5 rounded-lg bg-[#B74A26]/10 text-[#B74A26]">
-                  <Sparkles className="w-5 h-5 animate-pulse" />
-                </span>
-                <div>
-                  <h3 className="font-serif text-lg font-bold italic text-[#1F1612]">Soro "The Mom Test" Assistant</h3>
-                  <p className="text-[10px] font-mono text-[#1F1612]/50">Proactive Market-Fit Alignment & Interactive Prompts</p>
-                </div>
+          <ActivityTimeline leadId={lead.id} people={[{ id: lead.id, name: lead.name }]} companies={companies} />
+
+          <div className="bg-white/60 border border-[#1F1612]/10 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#1F1612]/5 pb-4">
+              <div>
+                <h3 className="font-serif text-lg font-bold italic text-[#1F1612]">Google Workspace</h3>
+                <p className="text-[11px] text-[#1F1612]/55 mt-1">Send a personal email or create a calendar invite from this profile.</p>
               </div>
-              <span className="text-[10px] font-mono text-[#7A8452] bg-[#7A8452]/10 px-2.5 py-0.5 rounded-full font-bold uppercase">
-                AI Active
-              </span>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setWorkspaceAction("mail"); void loadSenders(); }} className={`min-h-10 inline-flex items-center gap-1.5 rounded-xl border px-3 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B74A26] ${workspaceAction === "mail" ? "border-[#B74A26]/40 bg-[#B74A26]/10 text-[#B74A26]" : "border-[#1F1612]/10 bg-white text-[#1F1612]/65 hover:bg-[#1F1612]/5"}`}><Mail className="w-3.5 h-3.5" />Mail</button>
+                <button type="button" onClick={() => { setWorkspaceAction("calendar"); setWorkspaceStatus(""); }} className={`min-h-10 inline-flex items-center gap-1.5 rounded-xl border px-3 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CFA331] ${workspaceAction === "calendar" ? "border-[#CFA331]/40 bg-[#CFA331]/15 text-[#816113]" : "border-[#1F1612]/10 bg-white text-[#1F1612]/65 hover:bg-[#1F1612]/5"}`}><CalendarDays className="w-3.5 h-3.5" />Calendar</button>
+              </div>
             </div>
-
-            {/* Market Fit Thesis */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-mono uppercase font-bold tracking-widest text-[#1F1612]/50 block border-b border-[#1F1612]/5 pb-1">
-                Market-Fit Thesis Formulation
-              </span>
-              {lead.marketFitThesis ? (
-                <div className="bg-[#B74A26]/5 border-l-2 border-[#B74A26] p-4 rounded-r-xl">
-                  <p className="font-serif text-[15px] text-[#1F1612]/95 leading-relaxed italic">
-                    "{lead.marketFitThesis}"
-                  </p>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2.5 py-4 text-xs text-[#1F1612]/40 italic bg-[#1F1612]/5 rounded-xl px-4">
-                  <AlertCircle className="w-4 h-4 text-[#B74A26]" />
-                  <span>No thesis generated yet. Soro will draft one once bios are parsed.</span>
-                </div>
-              )}
-            </div>
-
-            {/* Custom Discovery Questions */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-mono uppercase font-bold tracking-widest text-[#1F1612]/50 block border-b border-[#1F1612]/5 pb-1">
-                Custom Non-Leading Discovery Questions (The Mom Test)
-              </span>
-              {lead.momTestQuestions && lead.momTestQuestions.length > 0 ? (
-                <div className="space-y-3.5">
-                  {lead.momTestQuestions.map((q, idx) => (
-                    <div key={idx} className="flex gap-3.5 bg-white/40 border border-[#1F1612]/5 rounded-xl p-3.5 shadow-2xs hover:border-[#1F1612]/15 transition-all">
-                      <span className="text-[#B74A26] font-serif italic font-extrabold text-[17px] select-none shrink-0">
-                        0{idx + 1}
-                      </span>
-                      <p className="text-xs leading-relaxed text-[#1F1612]/90 font-medium">
-                        {q}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2.5 py-4 text-xs text-[#1F1612]/40 italic bg-[#1F1612]/5 rounded-xl px-4">
-                  <HelpCircle className="w-4 h-4 text-[#CFA331]" />
-                  <span>No custom non-leading questions formulated.</span>
-                </div>
-              )}
-            </div>
+            {!workspaceAction && <p className="rounded-xl bg-[#1F1612]/5 px-4 py-3 text-xs leading-relaxed text-[#1F1612]/60">Choose an action to prepare it first. Nothing is sent or scheduled until you confirm.</p>}
+            {workspaceAction === "mail" && <form onSubmit={sendMail} className="space-y-3">
+              {!lead.email && <p role="alert" className="rounded-xl border border-[#B74A26]/25 bg-[#B74A26]/5 px-3 py-2 text-xs text-[#9E3D1F]">Add an email address to this lead before sending outreach.</p>}
+              <div><label htmlFor="mail-from" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Send from</label><select id="mail-from" value={selectedSender} disabled={isLoadingSenders || isWorkspaceWorking || senders.length === 0} onChange={(event) => void saveSender(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-[#1F1612]/10 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#B74A26]/30 disabled:cursor-not-allowed disabled:opacity-60"><option value="">{isLoadingSenders ? "Loading approved Gmail addresses…" : senders.length === 0 ? "No approved sender addresses" : "Choose a sender address"}</option>{senders.map((sender) => <option key={sender.sendAsEmail} value={sender.sendAsEmail}>{sender.displayName ? `${sender.displayName} — ` : ""}{sender.sendAsEmail}{sender.isDefault ? " (Gmail default)" : ""}</option>)}</select><p className="mt-1.5 text-[11px] text-[#1F1612]/50">Only Gmail-verified aliases appear here. Your choice is remembered for future emails.</p></div>
+              <div><label htmlFor="mail-subject" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Subject</label><input id="mail-subject" value={mailSubject} onChange={(event) => setMailSubject(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-xl border border-[#1F1612]/10 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#B74A26]/30" /></div>
+              <div><label htmlFor="mail-body" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Message</label><textarea id="mail-body" value={mailBody} onChange={(event) => setMailBody(event.target.value)} required rows={6} className="mt-1.5 w-full rounded-xl border border-[#1F1612]/10 bg-white p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-[#B74A26]/30" /></div>
+              <button disabled={!lead.email || !selectedSender || isWorkspaceWorking || isLoadingSenders} className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[#B74A26] px-4 text-xs font-mono font-bold uppercase tracking-wider text-white hover:bg-[#9E3D1F] disabled:cursor-not-allowed disabled:opacity-50"><Send className="w-3.5 h-3.5" />{isWorkspaceWorking ? "Sending…" : "Send with Gmail"}</button>
+            </form>}
+            {workspaceAction === "calendar" && <form onSubmit={scheduleMeeting} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2"><label htmlFor="meeting-title" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Event title</label><input id="meeting-title" value={meetingTitle} onChange={(event) => setMeetingTitle(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-xl border border-[#1F1612]/10 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#CFA331]/30" /></div>
+              <div><label htmlFor="meeting-start" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Start</label><input id="meeting-start" type="datetime-local" value={meetingStart} onChange={(event) => setMeetingStart(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-xl border border-[#1F1612]/10 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#CFA331]/30" /></div>
+              <div><label htmlFor="meeting-end" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">End</label><input id="meeting-end" type="datetime-local" value={meetingEnd} onChange={(event) => setMeetingEnd(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-xl border border-[#1F1612]/10 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#CFA331]/30" /></div>
+              <div className="sm:col-span-2"><label htmlFor="meeting-notes" className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#1F1612]/55">Invite notes</label><textarea id="meeting-notes" value={meetingNotes} onChange={(event) => setMeetingNotes(event.target.value)} rows={3} className="mt-1.5 w-full rounded-xl border border-[#1F1612]/10 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-[#CFA331]/30" /></div>
+              <div className="sm:col-span-2"><button disabled={isWorkspaceWorking} className="min-h-11 inline-flex items-center gap-2 rounded-xl bg-[#CFA331] px-4 text-xs font-mono font-bold uppercase tracking-wider text-[#1F1612] hover:bg-[#B78B20] disabled:cursor-not-allowed disabled:opacity-50"><CalendarDays className="w-3.5 h-3.5" />{isWorkspaceWorking ? "Scheduling…" : "Create calendar invite"}</button></div>
+            </form>}
+            {workspaceStatus && <p role="status" className={`rounded-xl px-3 py-2 text-xs ${workspaceStatus.includes("could not") || workspaceStatus.includes("Connect") || workspaceStatus.includes("Reconnect") ? "bg-[#B74A26]/5 text-[#9E3D1F]" : "bg-[#7A8452]/10 text-[#536035]"}`}>{workspaceStatus}</p>}
           </div>
 
           {/* Offline Backup Panel */}

@@ -12,6 +12,8 @@ export interface CreateLeadInput {
   updatedAt: string;
   marketFitThesis?: string;
   momTestQuestions?: string[];
+  linkedinUrl?: string | null;
+  companyWebsite?: string | null;
   gmailSent?: boolean;
   calendarScheduled?: boolean;
   sheetsSynced?: boolean;
@@ -20,6 +22,52 @@ export interface CreateLeadInput {
 
 export interface Lead extends CreateLeadInput {
   teamId: string;
+}
+
+export interface CreateCompanyInput {
+  id: string;
+  name: string;
+  website: string | null;
+  industry: string | null;
+  notes: string;
+  phase: Phase;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Company extends CreateCompanyInput {
+  teamId: string;
+}
+
+export const ACTIVITY_TYPES = ["call", "email", "linkedin", "meeting", "note", "stage_change", "task", "custom"] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+export type ActivityOutcome = "sent" | "replied" | "no_answer" | "completed" | "scheduled" | "no_show" | "bounced" | "left_voicemail" | "other";
+
+export interface CreateCrmActivityInput {
+  leadId?: string | null;
+  companyId?: string | null;
+  type: ActivityType;
+  outcome?: ActivityOutcome | null;
+  summary: string;
+  notes?: string | null;
+  occurredAt?: string;
+  nextStep?: string | null;
+  followUpAt?: string | null;
+}
+
+export interface CrmActivity extends CreateCrmActivityInput {
+  id: string;
+  teamId: string;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  actorName?: string;
+  editorName?: string;
+  leadName?: string | null;
+  companyName?: string | null;
 }
 
 export interface ActivityLog {
