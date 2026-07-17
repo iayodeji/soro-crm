@@ -1,8 +1,18 @@
--- Supabase Postgres migration for soroCRM
--- Run this in the Supabase SQL Editor or via `supabase db push`.
+-- Reconciliation migration: the live Supabase project's public tables were created
+-- with a minimal/older schema (e.g. `leads` only had id/name/company_name/email/phone/notes/phase
+-- and `users` only had `email`). This drops the stale tables and recreates them to match
+-- the intended schema in 20260101000000_initial_schema.sql.
+-- All tables were verified empty at the time this was written, so this is non-destructive.
+-- Run this in the Supabase SQL Editor (the project has no supabase CLI linked).
 
--- Enable UUID extension (optional, Supabase usually has it)
-create extension if not exists "uuid-ossp";
+drop table if exists public.invitations cascade;
+drop table if exists public.projects cascade;
+drop table if exists public.team_knowledge cascade;
+drop table if exists public.sessions cascade;
+drop table if exists public.team_memberships cascade;
+drop table if exists public.leads cascade;
+drop table if exists public.users cascade;
+drop table if exists public.teams cascade;
 
 -- Workspaces synced from Clerk organizations.
 create table if not exists public.teams (

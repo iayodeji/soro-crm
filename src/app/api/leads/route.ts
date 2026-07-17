@@ -85,29 +85,33 @@ export async function PATCH(request: NextRequest) {
   if (error) return error;
 
   try {
+    // 1. Check if it exists (using maybeSingle so it doesn't throw if not found)
     const { data: existing } = await getSupabaseAdmin()
       .from("leads")
       .select("teamId")
       .eq("id", lead!.id)
-      .single();
+      .maybeSingle();
 
-    if (!existing || existing.teamId !== teamId) {
-      return NextResponse.json({ error: "Lead not found in this workspace." }, { status: 404 });
+    // 2. If it DOES exist but belongs to another workspace, deny access
+    if (existing && existing.teamId !== teamId) {
+      return NextResponse.json({ error: "Lead belongs to another workspace." }, { status: 403 });
     }
 
-    const { data, error: updateError } = await getSupabaseAdmin()
+    // 3. Upsert the lead (Creates it if new, Updates it if existing)
+    const { data, error: upsertError } = await getSupabaseAdmin()
       .from("leads")
-      .update({
+      .upsert({
         ...lead,
-        teamId,
+        teamId, // Force assignment to current workspace
         updatedAt: new Date().toISOString(),
+      }, {
+        onConflict: 'id'
       })
-      .eq("id", lead!.id)
       .select()
       .single();
 
-    if (updateError) {
-      throw new Error(updateError.message);
+    if (upsertError) {
+      throw new Error(upsertError.message);
     }
 
     return NextResponse.json({ ok: true, lead: data });
