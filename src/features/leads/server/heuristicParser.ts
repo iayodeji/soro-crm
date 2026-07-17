@@ -109,7 +109,7 @@ function resolveThesisAndQuestions(text: string): { thesis: string; questions: s
   return match ? { thesis: match.thesis, questions: match.questions } : { thesis: DEFAULT_THESIS, questions: DEFAULT_QUESTIONS };
 }
 
-export function buildHeuristicFallback(rawText: string, errorNotice?: string): ParseLeadResult {
+export function buildHeuristicFallback(rawText: string): ParseLeadResult {
   const email = extractEmail(rawText);
   const phone = extractPhone(rawText);
   const { name, company } = extractNameAndCompany(rawText);
@@ -129,6 +129,6 @@ export function buildHeuristicFallback(rawText: string, errorNotice?: string): P
     market_fit_thesis: thesis,
     mom_test_questions: questions,
     isFallback: true,
-    errorNotice: errorNotice || "Invalid Gemini API Key",
+    errorNotice: "AI enrichment is temporarily unavailable; details were extracted from the text you provided.",
   };
 }

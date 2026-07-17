@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { downloadLeadsCsv } from "@/utils/csvExport";
 import type { Lead, CreateLeadInput, Phase } from "@/types";
 import type { LogActivityInput } from "@/types/activity";
+import { readApiResponse } from "@/lib/safeApiResponse";
 
 export function useLeads(logActivity: (input: LogActivityInput) => void) {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -133,23 +134,24 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rawText, useSearchGrounding: options.useSearchGrounding, modelPreset: options.modelPreset }),
         });
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "Failed to parse text via backend pipeline.");
+        const parsedData = await readApiResponse(response);
+        if (!response.ok) throw new Error(typeof parsedData.error === "string" ? parsedData.error : "Failed to parse text via backend pipeline.");
+        if (!parsedData.parsed_lead || typeof parsedData.parsed_lead !== "object" || !Array.isArray(parsedData.mom_test_questions)) {
+          throw new Error("The AI returned an incomplete lead profile. Please try again.");
         }
-        const parsedData = await response.json();
+        const parsedLead = parsedData.parsed_lead as Record<string, unknown>;
         const newLead: CreateLeadInput = {
           id: `lead-${Date.now()}`,
-          name: parsedData.parsed_lead?.name || "Unidentified Lead",
-          company_name: parsedData.parsed_lead?.company_name || "Startup",
-          email: parsedData.parsed_lead?.email || null,
-          phone: parsedData.parsed_lead?.phone || null,
+          name: typeof parsedLead.name === "string" ? parsedLead.name : "Unidentified Lead",
+          company_name: typeof parsedLead.company_name === "string" ? parsedLead.company_name : "Startup",
+          email: typeof parsedLead.email === "string" ? parsedLead.email : null,
+          phone: typeof parsedLead.phone === "string" ? parsedLead.phone : null,
           notes: rawText,
           phase: "lead_found",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          marketFitThesis: parsedData.market_fit_thesis,
-          momTestQuestions: parsedData.mom_test_questions,
+          marketFitThesis: typeof parsedData.market_fit_thesis === "string" ? parsedData.market_fit_thesis : "",
+          momTestQuestions: parsedData.mom_test_questions.filter((question): question is string => typeof question === "string"),
         };
         await updateLead(newLead as Lead);
 
@@ -194,5 +196,17 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
     }
   }, [leads, logActivity]);
 
-  return { leads, leadsLoaded, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv };
+  const importLeads = useCallback(async (rows: Record<string, string>[]) => {
+    const response = await fetch("/api/crm/import", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity: "people", rows }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "People import failed.");
+    const imported = (payload.imported ?? []) as Lead[];
+    setLeads((current) => [...imported, ...current]);
+    logActivity({ eventType: "lead_added", action: "People CSV Imported", details: `Imported ${imported.length} people into the pipeline.`, level: "success" });
+    return imported;
+  }, [logActivity]);
+
+  return { leads, leadsLoaded, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv, importLeads };
 }

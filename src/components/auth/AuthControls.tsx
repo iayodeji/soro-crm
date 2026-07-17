@@ -36,7 +36,17 @@ export function AuthControls() {
           <LayoutDashboard className="w-3.5 h-3.5" />
           Dashboard
         </Link>
-        <UserButton />
+        <UserButton
+          userProfileProps={{
+            additionalOAuthScopes: {
+              google: [
+                "https://www.googleapis.com/auth/gmail.send",
+                "https://www.googleapis.com/auth/gmail.settings.basic",
+                "https://www.googleapis.com/auth/calendar.events",
+              ],
+            },
+          }}
+        />
       </Show>
     </div>
   );

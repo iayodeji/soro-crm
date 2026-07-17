@@ -5,10 +5,11 @@ import { ArrowUp, Bot, CalendarDays, Check, Globe, LoaderCircle, Mail, Sparkles,
 import type { Lead, CreateLeadInput, Phase, Session } from "@/types";
 import type { LogActivityInput } from "@/types/activity";
 import type { AgentAction, AgentPlan } from "@/features/agent/types";
+import { readApiResponse } from "@/lib/safeApiResponse";
 
 const ACTION_LABELS: Record<AgentAction["type"], string> = {
   create_lead: "Create lead", update_lead: "Update lead", move_lead: "Move lead",
-  draft_email: "Draft email", send_email: "Send email", schedule_meeting: "Schedule meeting",
+  draft_email: "Draft email", send_email: "Send email", schedule_meeting: "Schedule meeting", log_activity: "Log progress",
 };
 
 const PHASES: Phase[] = ["lead_found", "prospect_engaged", "client_closed"];
@@ -135,13 +136,14 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
         },
         body: JSON.stringify({ prompt, threadId }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Soro could not understand that request.");
-      setPlan(data);
-      if (data.threadId && !threadId) {
+      const data = await readApiResponse(response);
+      if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Soro could not understand that request.");
+      if (typeof data.response !== "string" || !Array.isArray(data.actions)) throw new Error("Soro returned an incomplete plan. Please try again.");
+      setPlan(data as unknown as AgentPlan);
+      if (typeof data.threadId === "string" && !threadId) {
         setThreadId(data.threadId);
       }
-      if (data.sessionId) {
+      if (typeof data.sessionId === "string" && data.session && typeof data.session === "object") {
         const title = prompt.slice(0, 40) + (prompt.length > 40 ? "…" : "");
         setThreadTitle(title);
         setThreads((current) => {
@@ -176,6 +178,16 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
 
   const applyAction = async (action: AgentAction) => {
     const existingLead = getLead(action.leadId);
+    if (action.type === "log_activity") {
+      if (!action.leadId && !action.companyId) throw new Error("Soro must select a person or company for progress.");
+      const response = await fetch("/api/activities", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: action.leadId, companyId: action.companyId, type: action.activityType || "note", outcome: action.outcome, summary: action.summary || action.description || "Progress update", notes: action.notes, occurredAt: action.occurredAt, nextStep: action.nextStep, followUpAt: action.followUpAt }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not log progress.");
+      return;
+    }
     if (["update_lead", "move_lead", "draft_email", "send_email", "schedule_meeting"].includes(action.type) && !existingLead) throw new Error("Soro referenced a lead that no longer exists. Run the request again.");
     if (action.type === "create_lead") {
       const timestamp = new Date().toISOString();
@@ -199,16 +211,40 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
     }
     if (action.type === "send_email") {
       if (!existingLead!.email) throw new Error(`${existingLead!.name} has no email address.`);
-      // Google Workspace dispatch has been removed. The lead is flagged locally
-      // so the dossier reflects the intended outreach until you wire it back up.
+      const response = await fetch("/api/workspace/gmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: existingLead!.id,
+          subject: action.subject || `Quick question about ${existingLead!.company_name}`,
+          body: action.body || `Hi ${existingLead!.name},\n\nWould you be open to a short discovery conversation?\n\nBest,`,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send the email.");
       await onUpdateLead({ ...existingLead!, gmailSent: true });
-      logActivity({ eventType: "generic", action: "Email Recorded", details: `Outreach to ${existingLead!.email} recorded locally (external dispatch disabled).`, level: "info" });
+      logActivity({ eventType: "gmail_sent", action: "Gmail Sent", details: `Sent outreach to ${existingLead!.email}.`, level: "success", leadOverride: { id: existingLead!.id, name: existingLead!.name } });
       return;
     }
     if (action.type === "schedule_meeting") {
       if (!existingLead!.email) throw new Error(`${existingLead!.name} has no email address for an invite.`);
+      const startAt = action.startAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const endAt = action.endAt || new Date(new Date(startAt).getTime() + 30 * 60 * 1000).toISOString();
+      const response = await fetch("/api/workspace/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: existingLead!.id,
+          title: action.title || `Discovery conversation — ${existingLead!.name}`,
+          description: action.description || `Discovery conversation with ${existingLead!.name} at ${existingLead!.company_name}.`,
+          startAt,
+          endAt,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create the calendar event.");
       await onUpdateLead({ ...existingLead!, calendarScheduled: true });
-      logActivity({ eventType: "generic", action: "Meeting Recorded", details: `Discovery meeting with ${existingLead!.name} recorded locally (external dispatch disabled).`, level: "info" });
+      logActivity({ eventType: "generic", action: "Calendar Scheduled", details: `Created a calendar invite with ${existingLead!.name}.`, level: "success" });
     }
   };
 
@@ -250,7 +286,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
           <button type="submit" disabled={!prompt.trim() || isWorking} className="flex items-center gap-2 rounded-xl bg-[#B74A26] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-[#FDFBF2] disabled:opacity-40">{isWorking ? <LoaderCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <ArrowUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}{isWorking ? "Working…" : mode === "ask" ? "Ask Soro" : "Create lead"}</button>
         </div>
       </form>
-      {plan && <div className="mt-3 sm:mt-4 border-t border-[#1F1612]/10 pt-3 sm:pt-4"><div className="flex gap-2 text-sm leading-relaxed text-[#1F1612]"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#B74A26]" /><p>{plan.response}</p></div>{plan.actions.length > 0 && <div className="mt-2 sm:mt-3 space-y-2">{plan.actions.map((action, index) => <div key={`${action.type}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#FDFBF2] px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-[#1F1612]/75">{action.type === "send_email" ? <Mail className="h-3 h-3 sm:h-3.5 sm:w-3.5 text-[#B74A26]" /> : action.type === "schedule_meeting" ? <CalendarDays className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#CFA331]" /> : <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#7A8452]" />}<span className="truncate">{ACTION_LABELS[action.type]}{action.leadId ? ` · ${getLead(action.leadId)?.name || action.leadId}` : action.name ? ` · ${action.name}` : ""}</span></div>)}<button type="button" onClick={applyPlan} disabled={isApplying} className="mt-2 rounded-xl bg-[#B74A26] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-[#FDFBF2] disabled:cursor-not-allowed disabled:opacity-40">{isApplying ? "Working…" : "Apply plan"}</button>{hasExternalActions && <p className="text-[10px] sm:text-[11px] text-[#1F1612]/45">Email and calendar actions are recorded locally; external dispatch was removed.</p>}</div>}</div>}
+      {plan && <div className="mt-3 sm:mt-4 border-t border-[#1F1612]/10 pt-3 sm:pt-4"><div className="flex gap-2 text-sm leading-relaxed text-[#1F1612]"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#B74A26]" /><p>{plan.response}</p></div>{plan.actions.length > 0 && <div className="mt-2 sm:mt-3 space-y-2">{plan.actions.map((action, index) => <div key={`${action.type}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#FDFBF2] px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-[#1F1612]/75">{action.type === "send_email" ? <Mail className="h-3 h-3 sm:h-3.5 sm:w-3.5 text-[#B74A26]" /> : action.type === "schedule_meeting" ? <CalendarDays className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#CFA331]" /> : <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#7A8452]" />}<span className="truncate">{ACTION_LABELS[action.type]}{action.leadId ? ` · ${getLead(action.leadId)?.name || action.leadId}` : action.name ? ` · ${action.name}` : ""}</span></div>)}<button type="button" onClick={applyPlan} disabled={isApplying} className="mt-2 rounded-xl bg-[#B74A26] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-[#FDFBF2] disabled:cursor-not-allowed disabled:opacity-40">{isApplying ? "Working…" : "Apply plan"}</button>{hasExternalActions && <p className="text-[10px] sm:text-[11px] text-[#1F1612]/45">Email and calendar actions use your connected Google account and run only after you apply this plan.</p>}</div>}</div>}
     </div>
     {isKnowledgeOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4">
       <div className="w-full max-w-lg rounded-2xl border border-[#1F1612]/10 bg-white p-4 sm:p-6 shadow-xl">

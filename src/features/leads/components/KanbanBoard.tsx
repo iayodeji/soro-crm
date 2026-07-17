@@ -3,6 +3,7 @@ import { Plus, Eye, Search, X, User, Building2, Trash2, ArrowRight } from "lucid
 import { motion, AnimatePresence } from "motion/react";
 import { Lead, Phase } from "@/types";
 import { LeadSlideshow } from "./LeadSlideshow";
+import { EntityTabs } from "@/features/companies/components/EntityTabs";
 
 interface KanbanBoardProps {
   leads: Lead[];
@@ -66,6 +67,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl sm:text-4xl italic font-bold text-[#1F1612]">People</h1>
+          <p className="mt-1 text-sm text-[#1F1612]/60">Manage the people behind every customer relationship.</p>
+        </div>
+        <EntityTabs active="people" />
+      </div>
+
       {/* 3-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {columns.map((column) => {

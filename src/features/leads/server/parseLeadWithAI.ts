@@ -9,13 +9,29 @@ import {
 import type { ParseLeadRequestBody, ParseLeadResult } from "./types";
 
 function extractJson(text: string): ParseLeadResult {
+  let parsed: unknown;
   try {
-    return JSON.parse(text.trim());
+    parsed = JSON.parse(text.trim());
   } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0].trim());
-    throw new Error("Invalid JSON response from model: " + text);
+    throw new Error("The AI returned an unreadable lead profile.");
   }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The AI returned an incomplete lead profile.");
+  const result = parsed as Record<string, unknown>;
+  const lead = result.parsed_lead;
+  if (!lead || typeof lead !== "object" || Array.isArray(lead) || typeof result.market_fit_thesis !== "string" || !Array.isArray(result.mom_test_questions)) {
+    throw new Error("The AI returned an incomplete lead profile.");
+  }
+  const leadFields = lead as Record<string, unknown>;
+  const nullableString = (value: unknown) => typeof value === "string" ? value.trim() || null : value === null ? null : undefined;
+  const name = nullableString(leadFields.name);
+  const companyName = nullableString(leadFields.company_name);
+  const email = nullableString(leadFields.email);
+  const phone = nullableString(leadFields.phone);
+  const questions = result.mom_test_questions.filter((question): question is string => typeof question === "string" && Boolean(question.trim())).map((question) => question.trim());
+  if ([name, companyName, email, phone].some((value) => value === undefined) || !result.market_fit_thesis.trim() || questions.length < 1) {
+    throw new Error("The AI returned an incomplete lead profile.");
+  }
+  return { parsed_lead: { name: name!, company_name: companyName!, email: email!, phone: phone! }, market_fit_thesis: result.market_fit_thesis.trim(), mom_test_questions: questions.slice(0, 3) };
 }
 
 async function callGemini(model: string, userPrompt: string, useSearchGrounding: boolean): Promise<string> {

@@ -8,10 +8,12 @@
 begin;
 
 drop table if exists public.invitations cascade;
+drop table if exists public.user_mail_preferences cascade;
 drop table if exists public.projects cascade;
 drop table if exists public.team_knowledge cascade;
 drop table if exists public.sessions cascade;
 drop table if exists public.team_memberships cascade;
+drop table if exists public.companies cascade;
 drop table if exists public.leads cascade;
 drop table if exists public.users cascade;
 drop table if exists public.teams cascade;
@@ -57,6 +59,8 @@ create table public.leads (
   "updatedAt" text not null,
   "marketFitThesis" text,
   "momTestQuestions" jsonb,
+  "linkedinUrl" text,
+  "companyWebsite" text,
   "gmailSent" boolean not null default false,
   "calendarScheduled" boolean not null default false,
   "sheetsSynced" boolean not null default false,
@@ -64,6 +68,20 @@ create table public.leads (
 );
 
 create index idx_leads_team_id on public.leads("teamId");
+
+create table public.companies (
+  id text primary key,
+  "teamId" text not null references public.teams(id) on delete cascade,
+  name text not null,
+  website text,
+  industry text,
+  notes text not null,
+  phase text not null check (phase in ('lead_found', 'prospect_engaged', 'client_closed')),
+  "createdAt" text not null,
+  "updatedAt" text not null
+);
+
+create index idx_companies_team_id on public.companies("teamId");
 
 create table public.sessions (
   id text primary key,
@@ -99,6 +117,12 @@ create table public.users (
   "updatedAt" text not null
 );
 
+create table public.user_mail_preferences (
+  "userId" text primary key,
+  "fromEmail" text not null,
+  "updatedAt" text not null
+);
+
 create table public.projects (
   id text primary key,
   "teamId" text not null references public.teams(id) on delete cascade,
@@ -123,22 +147,45 @@ create table public.invitations (
 alter table public.teams enable row level security;
 alter table public.team_memberships enable row level security;
 alter table public.leads enable row level security;
+alter table public.companies enable row level security;
 alter table public.sessions enable row level security;
 alter table public.team_knowledge enable row level security;
 alter table public.users enable row level security;
+alter table public.user_mail_preferences enable row level security;
 alter table public.projects enable row level security;
 alter table public.invitations enable row level security;
+
+-- RLS does not replace PostgreSQL table privileges. Server routes use the
+-- Supabase service-role key, so grant it access explicitly.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table
+  public.users,
+  public.user_mail_preferences,
+  public.teams,
+  public.team_memberships,
+  public.leads,
+  public.companies,
+  public.sessions,
+  public.team_knowledge,
+  public.projects,
+  public.invitations
+to service_role;
+
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to service_role;
 
 create policy "Users can read teams" on public.teams for select using (auth.role() = 'authenticated');
 create policy "Service role can manage teams" on public.teams for all using (auth.role() = 'service_role');
 create policy "Users can read team memberships" on public.team_memberships for select using (auth.role() = 'authenticated');
 create policy "Service role can manage team memberships" on public.team_memberships for all using (auth.role() = 'service_role');
 create policy "Service role can manage leads" on public.leads for all using (auth.role() = 'service_role');
+create policy "Service role can manage companies" on public.companies for all to service_role using (true) with check (true);
 create policy "Service role can manage sessions" on public.sessions for all using (auth.role() = 'service_role');
 create policy "Service role can manage team knowledge" on public.team_knowledge for all using (auth.role() = 'service_role');
 create policy "Users can read own profile" on public.users for select using (auth.uid()::text = "clerkUserId");
 create policy "Users can upsert own profile" on public.users for insert with check (auth.uid()::text = "clerkUserId");
 create policy "Users can update own profile" on public.users for update using (auth.uid()::text = "clerkUserId");
+create policy "Service role can manage user mail preferences" on public.user_mail_preferences for all to service_role using (true) with check (true);
 create policy "Service role can manage projects" on public.projects for all using (auth.role() = 'service_role');
 create policy "Anyone can read invitations" on public.invitations for select using (true);
 create policy "Service role can manage invitations" on public.invitations for all using (auth.role() = 'service_role');

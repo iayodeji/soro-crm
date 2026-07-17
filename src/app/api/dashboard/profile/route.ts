@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ exists: true, profile: data });
-  } catch {
-    return NextResponse.json({ exists: false });
+  } catch (err: unknown) {
+    console.error("Failed to load profile:", err);
+    return NextResponse.json({ error: "Failed to load profile." }, { status: 500 });
   }
 }
 

@@ -1,4 +1,5 @@
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const REQUEST_TIMEOUT_MS = 20_000;
 
 interface KeyStatus {
   apiKey: string;
@@ -105,7 +106,10 @@ export async function callGroq({
 
     await rateLimiter!.acquire();
 
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
+      const controller = new AbortController();
+      timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       const response = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
@@ -121,6 +125,7 @@ export async function callGroq({
           response_format: responseFormat === "json_object" ? { type: "json_object" } : undefined,
           temperature,
         }),
+        signal: controller.signal,
       });
 
       if (response.status === 429 || response.status === 403) {
@@ -139,7 +144,7 @@ export async function callGroq({
         const text = await response.text();
         throw new Error(`Groq API error ${response.status}: ${text}`);
       }
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       const content = data.choices?.[0]?.message?.content;
       if (!content) throw new Error("Groq returned no content");
       return content;
@@ -147,6 +152,8 @@ export async function callGroq({
       lastError.push({ key: key.apiKey.slice(0, 8) + "...", error: err.message });
       markExhausted(key);
       continue;
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
   }
 

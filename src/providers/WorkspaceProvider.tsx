@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useActivityFeed } from "@/features/activity-feed/hooks/useActivityFeed";
 import { useLeads } from "@/features/leads/hooks/useLeads";
+import { useCompanies } from "@/features/companies/hooks/useCompanies";
 
 type WorkspaceContextValue = ReturnType<typeof useWorkspaceState>;
 
@@ -11,8 +12,9 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 function useWorkspaceState() {
   const networkStatus = useNetworkStatus();
   const activityFeed = useActivityFeed();
-  const { leads, leadsLoaded, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv } =
+  const { leads, leadsLoaded, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv, importLeads } =
     useLeads(activityFeed.logActivity);
+  const companies = useCompanies();
 
   return {
     networkStatus,
@@ -25,6 +27,8 @@ function useWorkspaceState() {
     addNewLead,
     parseLead,
     exportCsv,
+    importLeads,
+    ...companies,
   };
 }
 

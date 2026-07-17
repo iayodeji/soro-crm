@@ -7,6 +7,6 @@ export async function parseLead(input: ParseLeadRequestBody): Promise<ParseLeadR
     return await parseLeadWithAI(input);
   } catch (error: any) {
     console.error("Gemini API Error, falling back to heuristic parser:", error);
-    return buildHeuristicFallback(input.rawText, error?.message);
+    return buildHeuristicFallback(input.rawText);
   }
 }
