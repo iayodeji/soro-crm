@@ -73,7 +73,7 @@ export function ManageMembersModal({ isOpen, onClose, orgId, orgName }: ManageMe
 
       setInviteEmail("");
       setInviteRole("org:member");
-      setStatus("Invitation sent successfully.");
+      setStatus("Invitation email sent. They will join this workspace after opening it while signed in with this email address.");
       
       setTimeout(() => setStatus(null), 3000);
     } catch (err) {

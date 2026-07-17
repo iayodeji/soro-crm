@@ -19,7 +19,16 @@ export async function GET(req: NextRequest) {
 
     const client = createClerkClient({ secretKey });
     const result = await client.users.getOrganizationMembershipList({ userId });
-    return NextResponse.json(result.data);
+    return NextResponse.json(
+      result.data.map((membership) => ({
+        id: membership.organization.id,
+        name: membership.organization.name,
+        slug: membership.organization.slug,
+        role: membership.role,
+        createdAt: membership.organization.createdAt,
+        membersCount: membership.organization.membersCount,
+      }))
+    );
   } catch (err) {
     console.error("Failed to fetch organizations:", err);
     return NextResponse.json(

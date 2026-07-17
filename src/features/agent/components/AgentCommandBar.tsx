@@ -134,7 +134,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt, threadId }),
+        body: JSON.stringify({ prompt, ...(threadId ? { threadId } : {}) }),
       });
       const data = await readApiResponse(response);
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Soro could not understand that request.");

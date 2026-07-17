@@ -44,6 +44,26 @@ function normalizeInvitationRole(role: unknown): "org:member" | "org:admin" | nu
   return null;
 }
 
+function invitationErrorResponse(err: unknown) {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    "errors" in err &&
+    Array.isArray(err.errors)
+  ) {
+    const clerkError = err.errors[0] as { longMessage?: unknown; message?: unknown } | undefined;
+    const message =
+      (typeof clerkError?.longMessage === "string" && clerkError.longMessage) ||
+      (typeof clerkError?.message === "string" && clerkError.message) ||
+      "Unable to send the invitation.";
+    const status = typeof err.status === "number" && err.status >= 400 && err.status < 600 ? err.status : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+
+  return NextResponse.json({ error: "Unable to send the invitation. Please try again." }, { status: 500 });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
@@ -112,7 +132,8 @@ export async function POST(
 
     const { email, role } = await req.json();
 
-    if (!email || typeof email !== "string") {
+    const emailAddress = typeof email === "string" ? email.trim() : "";
+    if (!emailAddress) {
       return NextResponse.json(
         { error: "Email is required" },
         { status: 400 }
@@ -128,16 +149,16 @@ export async function POST(
     const invitation = await client.organizations.createOrganizationInvitation({
       organizationId: orgId,
       inviterUserId: userId,
-      emailAddress: email.trim(),
+      emailAddress,
       role: invitationRole,
+      // Clerk accepts the invite and creates the membership before redirecting
+      // the recipient back into the application.
+      redirectUrl: "/crm/organizations",
     });
 
     return NextResponse.json(invitation);
   } catch (err) {
     console.error("Failed to invite member:", err);
-    return NextResponse.json(
-      { error: "Failed to invite member" },
-      { status: 500 }
-    );
+    return invitationErrorResponse(err);
   }
 }

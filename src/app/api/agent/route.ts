@@ -31,11 +31,11 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body.prompt !== "string" || !body.prompt.trim()) {
     return NextResponse.json({ error: "A prompt is required." }, { status: 400 });
   }
-  if (body.prompt.length > 12_000 || (body.threadId !== undefined && typeof body.threadId !== "string")) {
+  if (body.prompt.length > 12_000 || (body.threadId != null && typeof body.threadId !== "string")) {
     return NextResponse.json({ error: "Please provide a valid request under 12,000 characters." }, { status: 400 });
   }
 
-  const threadId = body.threadId as string | undefined;
+  const threadId = typeof body.threadId === "string" ? body.threadId : undefined;
   const teamId = getWorkspaceId(request);
   const { userId } = getAuth(request);
   if (!teamId || !userId) {

@@ -65,6 +65,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           details: e?.message || "Unknown error while saving lead.",
           level: "warning",
         });
+        throw e;
       }
     },
     [leads, logActivity]
@@ -94,16 +95,20 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
 
   const addNewLead = useCallback(
     async (phase: Phase) => {
+      const timestamp = new Date().toISOString();
       const newLead: CreateLeadInput = {
-        id: `lead-${Date.now()}`,
+        // Keep manual creation IDs just as collision-resistant as agent-created
+        // leads. A timestamp alone can collide when requests are replayed or two
+        // quick-add controls are used in the same millisecond.
+        id: `lead-${crypto.randomUUID()}`,
         name: "New Founder Lead",
         company_name: "Acuity Labs",
         email: null,
         phone: null,
         notes: "Describe their operational bottleneck or recent workflow experience.",
         phase,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
         marketFitThesis: "A proactive target hypothesis relating to user feedback challenges.",
         momTestQuestions: [
           "How do you currently discover bottlenecks in your day-to-day workflow?",
@@ -111,9 +116,13 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
           "Walk me through what happened when that software was deployed.",
         ],
       };
-      await updateLead(newLead as Lead);
-      logActivity({ eventType: "lead_added", action: "Manual Lead Added", details: `Created empty profile card on column ${phase}.`, level: "info" });
-      return newLead;
+      try {
+        await updateLead(newLead as Lead);
+        logActivity({ eventType: "lead_added", action: "Manual Lead Added", details: `Created empty profile card on column ${phase}.`, level: "info" });
+        return newLead;
+      } catch {
+        return null;
+      }
     },
     [updateLead, logActivity]
   );
