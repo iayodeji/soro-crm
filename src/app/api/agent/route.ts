@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
 import { getGeminiClient } from "@/features/leads/server/geminiClient";
 import { callGroq } from "@/features/leads/server/groqClient";
 import { resolveModel } from "@/features/leads/server/modelSelection";
@@ -11,6 +12,7 @@ import {
 import type { AgentLeadContext, AgentPlan } from "@/features/agent/types";
 import { getOrCreateSession, addMessageToSession, getTeamKnowledge } from "@/features/agent/server/sessionService";
 import { getWorkspaceId } from "@/lib/workspace.server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 function extractJson(text: string): AgentPlan {
   try {
@@ -35,18 +37,31 @@ function buildDynamicSystemInstruction(baseInstruction: string, teamKnowledge?: 
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.prompt !== "string" || !Array.isArray(body.leads)) {
-    return NextResponse.json({ error: "A prompt and lead context are required." }, { status: 400 });
+  if (!body || typeof body.prompt !== "string" || !body.prompt.trim()) {
+    return NextResponse.json({ error: "A prompt is required." }, { status: 400 });
   }
 
-  const leads = body.leads as AgentLeadContext[];
   const threadId = body.threadId as string | undefined;
-  const teamId = await getWorkspaceId(request);
+  const teamId = getWorkspaceId(request);
+  const { userId } = getAuth(request);
+  if (!teamId || !userId) {
+    return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+  }
+
+  const { data: leadRows, error: leadsError } = await getSupabaseAdmin()
+    .from("leads")
+    .select("id, name, company_name, email, phone, notes, phase, marketFitThesis, momTestQuestions")
+    .eq("teamId", teamId);
+  if (leadsError) {
+    console.error("Failed to load agent lead context:", leadsError);
+    return NextResponse.json({ error: "Failed to load workspace leads." }, { status: 500 });
+  }
+  const leads = (leadRows ?? []) as AgentLeadContext[];
 
   let session;
   let teamKnowledge;
   try {
-    const sessionResult = await getOrCreateSession({ teamId, userId: teamId, threadId });
+    const sessionResult = await getOrCreateSession({ teamId, userId, threadId });
     session = sessionResult.session;
     teamKnowledge = await getTeamKnowledge(teamId);
   } catch (sessionError: any) {
@@ -105,7 +120,7 @@ export async function POST(request: NextRequest) {
     await addMessageToSession(session.id, userMessage);
     await addMessageToSession(session.id, { role: "assistant", content: plan.response, timestamp: new Date().toISOString() });
 
-    return NextResponse.json({ ...plan, threadId: session.threadId, sessionId: session.id });
+    return NextResponse.json({ ...plan, threadId: session.threadId, sessionId: session.id, session });
   } catch (geminiError: any) {
     console.warn("Gemini agent failed, falling back to Groq:", geminiError?.message || geminiError);
     try {
@@ -127,7 +142,7 @@ export async function POST(request: NextRequest) {
       await addMessageToSession(session.id, userMessage);
       await addMessageToSession(session.id, { role: "assistant", content: plan.response, timestamp: new Date().toISOString() });
 
-      return NextResponse.json({ ...plan, threadId: session.threadId, sessionId: session.id });
+      return NextResponse.json({ ...plan, threadId: session.threadId, sessionId: session.id, session });
     } catch (groqError: any) {
       console.error("Agent planning failed on both providers:", groqError?.message || groqError);
       return NextResponse.json(

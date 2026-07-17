@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { useWorkspace } from "@/providers/WorkspaceProvider";
 import { KanbanBoard } from "@/features/leads/components/KanbanBoard";
 import { DeleteLeadModal } from "@/features/leads/components/DeleteLeadModal";
@@ -14,6 +15,7 @@ import { AgentCommandBar } from "@/features/agent/components/AgentCommandBar";
 
 export default function CrmPage() {
   const router = useRouter();
+  const { isLoaded, orgId } = useAuth();
   const {
     leads, isParsing, updateLead, deleteLead, addNewLead, parseLead, exportCsv,
     fcmEnabled, toggleFcm, soundEnabled, toggleSound, dispatchTestPush,
@@ -21,6 +23,14 @@ export default function CrmPage() {
   } = useWorkspace();
 
   const [leadIdToConfirmDelete, setLeadIdToConfirmDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoaded && !orgId) {
+      router.replace("/crm/organizations");
+    }
+  }, [isLoaded, orgId, router]);
+
+  if (!isLoaded || !orgId) return null;
   const stats = getLeadStats(leads);
   const leadToDelete = leads.find((l) => l.id === leadIdToConfirmDelete) || null;
 

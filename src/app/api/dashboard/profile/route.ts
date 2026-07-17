@@ -1,19 +1,20 @@
+import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const clerkUserId = req.nextUrl.searchParams.get("clerkUserId");
-  if (!clerkUserId) {
-    return NextResponse.json({ error: "clerkUserId is required." }, { status: 400 });
+  const { userId } = getAuth(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { data, error } = await getSupabaseAdmin()
       .from("users")
       .select("*")
-      .eq("clerkUserId", clerkUserId)
+      .eq("clerkUserId", userId)
       .single();
 
     if (error || !data) {
@@ -21,24 +22,25 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ exists: true, profile: data });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ exists: false });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const { userId } = getAuth(request);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { clerkUserId, email, firstName, lastName, imageUrl } = body;
-
-    if (!clerkUserId) {
-      return NextResponse.json({ error: "clerkUserId is required." }, { status: 400 });
-    }
+    const { email, firstName, lastName, imageUrl } = body;
 
     const { error } = await getSupabaseAdmin()
       .from("users")
       .upsert({
-        clerkUserId,
+        clerkUserId: userId,
         email,
         firstName,
         lastName,
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Failed to save profile:", err);
     return NextResponse.json({ error: "Failed to save profile." }, { status: 500 });
   }

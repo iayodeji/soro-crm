@@ -4,11 +4,15 @@ import { createClerkClient } from "@clerk/backend";
 
 export const dynamic = "force-dynamic";
 
+function canManageMembers(orgRole: string | null | undefined): boolean {
+  return orgRole === "org:admin" || orgRole === "admin";
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string; memberId: string }> }
 ) {
-  const { userId, orgId: activeOrgId } = getAuth(req);
+  const { userId, orgId: activeOrgId, orgRole } = getAuth(req);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,6 +25,9 @@ export async function DELETE(
       { error: "Forbidden - not a member of this organization" },
       { status: 403 }
     );
+  }
+  if (!canManageMembers(orgRole)) {
+    return NextResponse.json({ error: "Only organization administrators can remove members." }, { status: 403 });
   }
 
   try {

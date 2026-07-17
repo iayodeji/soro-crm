@@ -5,7 +5,6 @@ import { ArrowUp, Bot, CalendarDays, Check, Globe, LoaderCircle, Mail, Sparkles,
 import type { Lead, CreateLeadInput, Phase, Session } from "@/types";
 import type { LogActivityInput } from "@/types/activity";
 import type { AgentAction, AgentPlan } from "@/features/agent/types";
-import { WORKSPACE_ID } from "@/lib/workspace";
 
 const ACTION_LABELS: Record<AgentAction["type"], string> = {
   create_lead: "Create lead", update_lead: "Update lead", move_lead: "Move lead",
@@ -42,7 +41,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/agent/sessions?teamId=${encodeURIComponent(WORKSPACE_ID)}`)
+    fetch("/api/agent/sessions")
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data.sessions) {
@@ -59,7 +58,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
 
   const loadKnowledge = async () => {
     try {
-      const res = await fetch(`/api/agent/knowledge?teamId=${encodeURIComponent(WORKSPACE_ID)}`);
+      const res = await fetch("/api/agent/knowledge");
       const data = await res.json();
       if (data.knowledge) {
         setKnowledgeForm({
@@ -91,10 +90,9 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
         const topic = line.slice(0, colonIndex).trim();
         const decision = line.slice(colonIndex + 1).trim();
         if (!topic || !decision) return null;
-        return { topic, decision, decidedAt: new Date().toISOString(), decidedBy: WORKSPACE_ID };
-      }).filter((item): item is { topic: string; decision: string; decidedAt: string; decidedBy: string } => item !== null);
+        return { topic, decision };
+      }).filter((item): item is { topic: string; decision: string } => item !== null);
       const payload = {
-        teamId: WORKSPACE_ID,
         salesProcess: knowledgeForm.salesProcess,
         leadScoringCriteria: knowledgeForm.leadScoringCriteria,
         commonObjections: knowledgeForm.commonObjections,
@@ -135,7 +133,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt, leads, threadId, teamId: WORKSPACE_ID }),
+        body: JSON.stringify({ prompt, threadId }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Soro could not understand that request.");
@@ -149,7 +147,7 @@ export function AgentCommandBar({ leads, onUpdateLead, onParse, isParsing, logAc
         setThreads((current) => {
           const exists = current.find((t) => t.id === data.sessionId);
           if (exists) return current.map((t) => t.id === data.sessionId ? { ...t, title, lastActivity: new Date().toISOString() } : t);
-          return [{ id: data.sessionId, threadId: data.threadId, title, lastActivity: new Date().toISOString(), teamId: WORKSPACE_ID, userId: WORKSPACE_ID, messages: [], createdAt: new Date().toISOString() }, ...current];
+          return [data.session as Session, ...current];
         });
       }
       logActivity({ eventType: "generic", action: "Agent Plan Ready", details: `Soro planned ${data.actions.length} action${data.actions.length === 1 ? "" : "s"}.`, level: "info" });

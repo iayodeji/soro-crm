@@ -22,7 +22,6 @@ export function useClerkSync(): ClerkSyncState {
   const [hasProfile, setHasProfile] = useState(false);
 
   const syncingForUserRef = useRef<string | null>(null);
-  const cancelledRef = useRef(false);
   const attemptRef = useRef(0);
   const lastOrgIdRef = useRef<string | null>(null);
   const [, setAttempt] = useState(0);
@@ -60,7 +59,6 @@ export function useClerkSync(): ClerkSyncState {
     if (!orgChanged && syncingForUserRef.current === userId) return;
 
     syncingForUserRef.current = userId;
-    cancelledRef.current = false;
     setIsSyncing(true);
     setError(null);
 
@@ -85,7 +83,6 @@ export function useClerkSync(): ClerkSyncState {
     }
 
     syncingForUserRef.current = null;
-    cancelledRef.current = true;
   }, [isLoaded, isSignedIn, userId, orgId, syncWithClerk]);
 
   const isReady = isLoaded && !!isSignedIn && !!userId;
@@ -94,7 +91,7 @@ export function useClerkSync(): ClerkSyncState {
     if (!isReady || !userId) return;
 
     let active = true;
-    fetch(`/api/dashboard/profile?clerkUserId=${encodeURIComponent(userId)}`)
+    fetch("/api/dashboard/profile")
       .then((r) => (r.ok ? r.json() : { exists: false }))
       .then((data) => {
         if (active) setHasProfile(Boolean(data.exists));

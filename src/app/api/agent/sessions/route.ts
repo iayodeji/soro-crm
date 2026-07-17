@@ -5,7 +5,10 @@ import { getWorkspaceId } from "@/lib/workspace.server";
 
 export async function GET(req: NextRequest) {
   try {
-    const teamId = await getWorkspaceId(req);
+    const teamId = getWorkspaceId(req);
+    if (!teamId) {
+      return NextResponse.json({ error: "An active organization is required." }, { status: 400 });
+    }
     const sessions = await getSessionsByTeam(teamId, 20);
     return NextResponse.json({ sessions });
   } catch (error: any) {

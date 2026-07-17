@@ -33,6 +33,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
 
   const updateLead = useCallback(
     async (updatedLead: Lead) => {
+      const previousLead = leads.find((lead) => lead.id === updatedLead.id);
       setLeads((prev) => {
         const idx = prev.findIndex((l) => l.id === updatedLead.id);
         if (idx >= 0) {
@@ -45,12 +46,17 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
 
       try {
         const res = await fetch("/api/leads", {
-          method: "PATCH",
+          method: previousLead ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lead: updatedLead }),
         });
         if (!res.ok) throw new Error("save failed");
       } catch (e: any) {
+        setLeads((current) =>
+          previousLead
+            ? current.map((lead) => lead.id === previousLead.id ? previousLead : lead)
+            : current.filter((lead) => lead.id !== updatedLead.id),
+        );
         console.error("[useLeads] updateLead: server write FAILED.", e);
         logActivity({
           eventType: "generic",
@@ -60,7 +66,7 @@ export function useLeads(logActivity: (input: LogActivityInput) => void) {
         });
       }
     },
-    [logActivity]
+    [leads, logActivity]
   );
 
   const deleteLead = useCallback(

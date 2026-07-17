@@ -2,7 +2,6 @@ import type { ParseLeadResult } from "./types";
 
 const DEFAULT_NAME = "Sarah Jenkins";
 const DEFAULT_COMPANY = "NextFlow Corp";
-const DEFAULT_PHONE = "+1 (555) 382-9901";
 
 function extractEmail(text: string): string | null {
   const match = text.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,6}/);
@@ -123,8 +122,9 @@ export function buildHeuristicFallback(rawText: string, errorNotice?: string): P
     parsed_lead: {
       name: finalName,
       company_name: finalCompany,
-      email: email || `${finalName.toLowerCase().replace(/\s+/g, "")}@${finalCompany.toLowerCase().replace(/\s+/g, "")}.co`,
-      phone: phone || DEFAULT_PHONE,
+      // Contact details must be observed in the input, never inferred.
+      email,
+      phone,
     },
     market_fit_thesis: thesis,
     mom_test_questions: questions,
